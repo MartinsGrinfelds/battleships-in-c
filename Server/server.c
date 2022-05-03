@@ -17,7 +17,7 @@ int* client_count = NULL;
 int* shared_data = NULL;
 
 void get_shared_memory() {
-    shared_memory = mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+    shared_memory = mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     client_count = (int*) shared_memory;
     shared_data = (int*) (shared_memory + sizeof(int));
 }
@@ -120,7 +120,7 @@ void process_client(int id, int socket) {
 
             i = (int) in[0] - 48;
 
-            printf("CLIENT %d read number %d\n"), id, i);
+            printf("CLIENT %d read number %d\n", id, i);
             shared_data[id] = i;
         }
     }
