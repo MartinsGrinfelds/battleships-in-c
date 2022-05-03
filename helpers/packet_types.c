@@ -99,27 +99,27 @@ struct Start_game {
     uint8_t y;
 };
 
-// struct Jaiet {
-//     uint8_t player_ID;
-//     uint8_t ship_ID;
-//     uint8_t x;
-//     uint8_t y;
-//     uint8_t direction;
-//     uint8_t damage;
-// };
+struct Jaiet {
+    uint8_t player_ID;
+    uint8_t ship_ID;
+    uint8_t x;
+    uint8_t y;
+    uint8_t direction;
+    uint8_t damage;
+};
 
-// struct Gajiens{
-//     uint8_t player_ID;
-//     uint8_t action;
-//     uint8_t y;
-//     uint8_t x;
-//     uint8_t direction_or_powerup;
-// };
+struct Gajiens{
+    uint8_t player_ID;
+    uint8_t action;
+    uint8_t y;
+    uint8_t x;
+    uint8_t direction_or_powerup;
+};
 
-// struct End_game {
-//     uint8_t winner_ID; //dqf is
-//     uint8_t win_team_ID;
-// };
+struct End_game {
+    uint8_t winner_ID; //dqf is
+    uint8_t winner_team_ID;
+};
 
 
 int main() {
