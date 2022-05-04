@@ -3,8 +3,8 @@
 #include<stdio.h>
 
 struct GENERIC_PACKET{
-    uint32_t sequence_number;
-    uint32_t packet_content_size; /* ?? */
+    uint8_t sequence_number;
+    uint8_t packet_content_size; /* ?? */
     uint8_t packet_type;
     char content[2056];   // Kādu izmēru šeit likt?
     uint8_t checksum;
@@ -122,20 +122,20 @@ struct End_game {
 };
 
 
-int main() {
-    struct HELLO hello;
-    hello.player_name_length = 8;
-    strcpy(hello.player_name, "Timothy");
+// int main() {
+//     struct HELLO hello;
+//     hello.player_name_length = 8;
+//     strcpy(hello.player_name, "Timothy");
 
-    printf("%d, %s\n", hello.player_name_length, hello.player_name);
+//     printf("%d, %s\n", hello.player_name_length, hello.player_name);
    
-    struct ACK a_p;
-    a_p.player_ID = 12;
-    a_p.team_ID = 1;
+//     struct ACK a_p;
+//     a_p.player_ID = 12;
+//     a_p.team_ID = 1;
 
-    printf("%d, %d\n", a_p.player_ID, a_p.team_ID);
+//     printf("%d, %d\n", a_p.player_ID, a_p.team_ID);
 
-    struct Message msg;
+//     struct Message msg;
 
-    return 0;
-}
+//     return 0;
+// }

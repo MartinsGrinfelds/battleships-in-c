@@ -5,10 +5,30 @@
 
 // ************************
 
+#define DOUBLE_OUT 4120
 
-
-char* encode(char* info) {
-
+char* encode(char* info, uint8_t size) {
+  size_t j = 0;
+  char out[DOUBLE_OUT];
+  for (size_t i = 0; i < size; i++)
+  {
+    if (info[i] == '\0')
+    {
+      out[j++] = '\1';
+      out[j++] = '\1';
+    }
+    else if (info[i] == '\1')
+    {
+      out[j++] = '\1';
+      out[j++] = '\2';
+    }
+    else
+    {
+      out[j++] = info[i];
+    }
+  }
+  out[j] = '\0';
+  return out;
 }
 
 char* decode(char* info) {

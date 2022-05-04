@@ -3,6 +3,7 @@
 #include<string.h>
 #include<arpa/inet.h>
 #include<unistd.h>
+#include"../helpers/packet_types.c"
 
 #define HOST "127.0.0.1"
 #define PORT 12345
@@ -34,6 +35,8 @@ int main() {
         while(1) {
             scanf("%s", inputs);
             send(my_socket, inputs, strlen(inputs), 0);
+            send(my_socket, "\0", 1, 0); // Sending binary zero
+            send(my_socket, "\0", 1, 0); // As an end of packet
         }
     }
     return 0;

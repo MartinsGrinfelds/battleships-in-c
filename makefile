@@ -1,2 +1,4 @@
 client: Client/client.c
-	gcc -std=c90 Client/client.c -o out/client
+	gcc Client/client.c helpers/packet_types.c -o out/client
+server: Server/server.c
+	gcc Server/server.c -o out/Server
