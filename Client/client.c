@@ -9,7 +9,7 @@
 #define PORT 12345
 
 int main() {
-    int my_socket;
+    int my_socket = 0;
 
     char *servername;
     struct sockaddr_in remote_address;
