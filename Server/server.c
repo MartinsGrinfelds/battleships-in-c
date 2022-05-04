@@ -105,7 +105,7 @@ void start_network() {
 
 void process_client(int id, int socket) {
     int i = 0;
-    char in[1];
+    char in;
     char out[100];
 
     printf("Processing client id =%d, socket=%d\n", id, socket);
@@ -113,14 +113,14 @@ void process_client(int id, int socket) {
 
     while(1) {
         read(socket, in, 1);
-        if(in[0] > 47 && in[0] < 58) {
+        if(in > 47 && in < 58) {
             sprintf(out, "CLIENT %d SUM = %d\n", id, shared_data[MAX_CLIENTS+id]);
 
             write(socket, out, strlen(out));
 
-            i = (int) in[0] - 48;
+            i = (int) in - 48;
 
-            printf("CLIENT %d read number %d\n"), id, i);
+            printf("CLIENT %d read number %d\n", id, i);
             shared_data[id] = i;
         }
     }
