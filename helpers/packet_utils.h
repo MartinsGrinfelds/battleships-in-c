@@ -12,7 +12,7 @@
 
 char *encode(char *info, uint8_t size);
 
-void* decode(char *info);
+char* decode(char *info);
 
 void print_smth(char *info);
 

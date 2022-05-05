@@ -28,7 +28,7 @@ char *encode(char *info, uint8_t size)
   return out;
 }
 
-void* decode(char *info)
+char* decode(char *info)
 {
   size_t j = 0;
   char* out = malloc(sizeof(char)*MAX_PACKET_SIZE);
@@ -56,11 +56,11 @@ void* decode(char *info)
     }
     else
     {
-      out[j++] = info[--i];
+      out[j++] = info[i];
     }
   }
   out[j] = '\0';
-  return &out[0];
+  return out;
 }
 
 void print_smth(char *info)

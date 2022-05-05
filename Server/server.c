@@ -44,10 +44,22 @@ void gameloop()
     }
 }
 
+void process_packet(void* packet)
+{
+    struct GENERIC_PACKET *packet_template = (struct GENERIC_PACKET *)packet;
+    printf("---PACKET CONTENT---");
+    printf("%d\n", packet_template->sequence_number);
+    printf("%d\n", packet_template->packet_content_size);
+    printf("%d\n", packet_template->packet_type);
+    printf("%d\n", packet_template->checksum);
+    printf("---END OF PACKET CONTENT---");
+}
+
 void process_client(int id, int socket)
 {
     char in[1];
-    char out[MAX_PACKET_SIZE];
+    char out[DOUBLE_OUT];
+    char received_info[MAX_PACKET_SIZE];
     int binaryZero = 0;
 
     printf("Processing client id =%d, socket=%d\n", id, socket);
@@ -63,7 +75,7 @@ void process_client(int id, int socket)
         if (in[0] != '\0')
         {
             out[0] = in[0];
-            for (size_t i = 1; i < MAX_PACKET_SIZE; i++)
+            for (size_t i = 1; i < DOUBLE_OUT; i++)
             {
                 read(socket, in, 1);
                 if (in[0] == '\0')
@@ -84,8 +96,13 @@ void process_client(int id, int socket)
                     {
                         out[--i] = '\0';
                         //char* ReceivedInfo = malloc(sizeof(char)*i);
-                        //char* ReceivedInfo = decode(out);
-                        printf("Client sent: %s\n", out);
+                        strcpy(received_info, decode(out));
+                        print_bytes(&received_info, sizeof(char)* i);
+                        // printf("Client sent: %s\n", out);
+
+                        process_packet((void *)&received_info);
+                        
+
                         break;
                     }
                 }

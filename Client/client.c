@@ -16,6 +16,7 @@ int main() {
     struct sockaddr_in remote_address;
     
     char inputs[100];
+    char buffer[4096];
 
     remote_address.sin_family = AF_INET;
     remote_address.sin_port = htons(PORT);
@@ -35,7 +36,22 @@ int main() {
     else {
         while(1) {
             scanf("%s", inputs);
-            send(my_socket, inputs, strlen(inputs), 0);
+            
+            struct HELLO helloP; 
+            helloP.player_name_length = 8;
+            strcpy(helloP.player_name, "Kaspars");
+
+            struct GENERIC_PACKET testP;
+            testP.sequence_number = 10;
+            testP.packet_content_size = 9;
+            testP.packet_type = 5;
+            testP.checksum = 7;
+            testP.content[0] = *(char*)(void*)&helloP;
+            
+
+            strcpy(buffer, encode((void*) &testP, (uint8_t) sizeof(testP)));
+            print_bytes((void*)&buffer,2050);
+            send(my_socket, buffer, strlen(buffer), 0);
             send(my_socket, "\0", 1, 0); // Sending binary zero
             send(my_socket, "\0", 1, 0); // As an end of packet
         }
