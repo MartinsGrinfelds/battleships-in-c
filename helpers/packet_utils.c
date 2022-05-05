@@ -2,8 +2,6 @@
 #include "packet_utils.h"
 // ************************
 
-#define MAX_PACKET_SIZE 2060
-#define DOUBLE_OUT MAX_PACKET_SIZE*2
 
 char *encode(char *info, uint8_t size)
 {
