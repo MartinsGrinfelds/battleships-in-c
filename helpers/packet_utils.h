@@ -6,6 +6,9 @@
 #include <stdlib.h>
 // ************************
 
+#ifndef PACKET_UTILS
+#define PACKET_UTILS "packet_utils.h"
+
 #define MAX_PACKET_SIZE 2060
 #define DOUBLE_OUT MAX_PACKET_SIZE*2
 
@@ -26,3 +29,5 @@ char *from_hex_to_dec(char *info);
 char *from_dec_to_hex(char *info);
 
 char *get_checksum(int packet);
+
+#endif /*comment */

@@ -30,7 +30,7 @@ char *encode(char *info, uint8_t size)
   return out;
 }
 
-char* decode(char *info)
+void* decode(char *info)
 {
   size_t j = 0;
   char* out = malloc(sizeof(char)*MAX_PACKET_SIZE);
