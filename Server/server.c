@@ -55,6 +55,7 @@ void process_client(int id, int socket)
         read(socket, in, 1);
         // printf("CLIENT %d read number %d\n", id, in);
         //printf("Client sent: %c\n", in[0]);
+        int binaryZero = 0;
         if (in[0] != '\0')
         {
             out[0] = in[0];
@@ -63,13 +64,34 @@ void process_client(int id, int socket)
                 read(socket, in, 1);
                 if (in[0] == '\0')
                 {
-                    // check decode size (maybe) and decode here or after for
-                    out[i] = '\0';
-                    printf("Client sent: %s\n", out);
-                    break;
+                    if (binaryZero < 0) // Binary zero was before. Need to drop the packet till next two binary zeroes
+                    {
+                        binaryZero--;
+                        if (binaryZero == -3) // Two binary zeroes detected after malformed packet. Can return now
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        binaryZero++; // Binary zero received
+                    }
+                    if (binaryZero == 2)
+                    {
+                        out[i] = '\0';
+                        char* ReceivedInfo = decode(out);
+                        printf("Client sent: %s\n", out);
+                        break;
+                    }
                 }
-                out[i] = in[0];
-                
+                else if (binaryZero == 0) // No binary zeroes detected
+                {
+                    out[i] = in[0];
+                }
+                else if (binaryZero > 0 || binaryZero < 0) // Binary zero was before. Need to drop the packet till next two binary zeroes (Always to -1 if altering 00 06 00 20 00)
+                {
+                    binaryZero = -1;
+                }
             }
         }
     }
