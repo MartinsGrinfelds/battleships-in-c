@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
+#include "../helpers/packet_types.c"
 
 #define MAX_CLIENTS 16
 #define PORT 12345
