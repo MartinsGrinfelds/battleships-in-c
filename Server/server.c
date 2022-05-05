@@ -46,8 +46,9 @@ void gameloop()
 
 void process_client(int id, int socket)
 {
-    int in[1];
+    char in[1];
     char out[MAX_PACKET_SIZE];
+    int binaryZero = 0;
 
     printf("Processing client id =%d, socket=%d\n", id, socket);
     printf("Client count=%d\n", *client_count);
@@ -57,7 +58,8 @@ void process_client(int id, int socket)
         read(socket, in, 1);
         // printf("CLIENT %d read number %d\n", id, in);
         //printf("Client sent: %c\n", in[0]);
-        char binaryZero = 0;
+        
+        binaryZero = 0;
         if (in[0] != '\0')
         {
             out[0] = in[0];
@@ -80,9 +82,9 @@ void process_client(int id, int socket)
                     }
                     if (binaryZero == 2)
                     {
-                        out[i] = '\0';
+                        out[--i] = '\0';
                         //char* ReceivedInfo = malloc(sizeof(char)*i);
-                        char* ReceivedInfo = decode(out);
+                        //char* ReceivedInfo = decode(out);
                         printf("Client sent: %s\n", out);
                         break;
                     }
