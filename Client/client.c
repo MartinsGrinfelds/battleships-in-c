@@ -3,7 +3,8 @@
 #include<string.h>
 #include<arpa/inet.h>
 #include<unistd.h>
-#include"../helpers/packet_types.c"
+#include "../helpers/packet_types.h"
+#include "../helpers/packet_utils.h"
 
 #define HOST "127.0.0.1"
 #define PORT 12345

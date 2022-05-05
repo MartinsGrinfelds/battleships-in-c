@@ -7,12 +7,14 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
-#include "../helpers/packet_types.c"
+#include "../helpers/packet_types.h"
+#include "../helpers/packet_utils.h"
 
 #define MAX_CLIENTS 16
 #define PORT 12345
 #define SHARED_MEMORY_SIZE 1024 * 1024
-#define MAX_PACKET_SIZE 4120
+#define MAX_PACKET_SIZE 2060
+
 
 char *shared_memory = NULL;
 int *client_count = NULL;
@@ -55,7 +57,7 @@ void process_client(int id, int socket)
         read(socket, in, 1);
         // printf("CLIENT %d read number %d\n", id, in);
         //printf("Client sent: %c\n", in[0]);
-        int binaryZero = 0;
+        char binaryZero = 0;
         if (in[0] != '\0')
         {
             out[0] = in[0];
@@ -79,6 +81,7 @@ void process_client(int id, int socket)
                     if (binaryZero == 2)
                     {
                         out[i] = '\0';
+                        //char* ReceivedInfo = malloc(sizeof(char)*i);
                         char* ReceivedInfo = decode(out);
                         printf("Client sent: %s\n", out);
                         break;

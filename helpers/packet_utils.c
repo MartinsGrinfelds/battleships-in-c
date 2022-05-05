@@ -1,16 +1,14 @@
 // ********************* includes *****************************
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
-
+#include "packet_utils.h"
 // ************************
 
-#define DOUBLE_OUT 4120
+#define MAX_PACKET_SIZE 2060
+#define DOUBLE_OUT MAX_PACKET_SIZE*2
 
 char *encode(char *info, uint8_t size)
 {
   size_t j = 0;
-  char out[DOUBLE_OUT];
+  char* out = malloc(sizeof(char)*DOUBLE_OUT);
   for (size_t i = 0; i < size; i++)
   {
     if (info[i] == '\0')
@@ -32,11 +30,11 @@ char *encode(char *info, uint8_t size)
   return out;
 }
 
-char *decode(char *info)
+char* decode(char *info)
 {
   size_t j = 0;
-  char out[DOUBLE_OUT];
-  for (size_t i = 0; i < size; i++)
+  char* out = malloc(sizeof(char)*MAX_PACKET_SIZE);
+  for (size_t i = 0; i < MAX_PACKET_SIZE; i++)
   {
     if (info[i] == '\1')
     {
@@ -64,7 +62,7 @@ char *decode(char *info)
     }
   }
   out[j] = '\0';
-  return out;
+  return &out[0];
 }
 
 void print_smth(char *info)
@@ -111,10 +109,4 @@ char *from_dec_to_hex(char *info)
 
 char *get_checksum(int packet)
 { // Kā padot paketi?
-}
-
-int main()
-{
-  char c[10] = "Tests!";
-  print_bytes(c, 13);
 }
