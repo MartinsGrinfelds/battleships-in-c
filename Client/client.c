@@ -11,11 +11,22 @@
 
 int main() {
     int my_socket = 0;
+    char buf[4256];
 
     char *servername;
     struct sockaddr_in remote_address;
     
     char inputs[100];
+
+    struct HELLO hello;
+    int player_length = 8;
+    hello.player_name_length = player_length;
+    strcpy(hello.player_name, "Timothy");
+
+    int hello_size = sizeof(uint8_t) + sizeof(char) * player_length;
+
+    strcpy(buf, encode((void*) &hello, hello_size));
+    printf("%s", &buf);
 
     remote_address.sin_family = AF_INET;
     remote_address.sin_port = htons(PORT);
@@ -35,7 +46,19 @@ int main() {
     else {
         while(1) {
             scanf("%s", inputs);
-            send(my_socket, inputs, strlen(inputs), 0);
+            //send(my_socket, inputs, strlen(inputs), 0);
+
+            send(my_socket, "\0", 1, 0); // Sending binary zero
+            send(my_socket, "\0", 1, 0); // As an end of packet
+
+            //send(my_socket, inputs, strlen(inputs), 0);
+            send(my_socket, buf, strlen(buf), 0);
+
+            send(my_socket, "\0", 1, 0); // Sending binary zero
+            send(my_socket, "\0", 1, 0); // As an end of packet
+
+            send(my_socket, buf, strlen(buf), 0);
+
             send(my_socket, "\0", 1, 0); // Sending binary zero
             send(my_socket, "\0", 1, 0); // As an end of packet
         }

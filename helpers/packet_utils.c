@@ -27,6 +27,9 @@ char *encode(char *info, uint8_t size)
     }
   }
   out[j] = '\0';
+  //print_bytes(out, size);
+  //printf("\n%s\n", out);
+
   return out;
 }
 

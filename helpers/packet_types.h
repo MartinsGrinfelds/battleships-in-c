@@ -13,7 +13,7 @@ struct GENERIC_PACKET{
 
 struct HELLO {
     uint8_t player_name_length; //??
-    char* player_name;
+    char player_name[64];
 };
 
 struct ACK {
