@@ -1,7 +1,4 @@
 #pragma once
-#include<stdint.h>
-#include<string.h>
-#include<stdio.h>
 
 struct GENERIC_PACKET{
     uint8_t sequence_number;
