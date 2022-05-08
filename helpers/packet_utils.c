@@ -131,7 +131,7 @@ uint8_t get_checksum(struct GENERIC_PACKET packet)
   return checksum;
 }
 /// type: 0 - client, 1(every other int) - server
-/// id: client id is necessary if this is server. If client then it can be any number
+/// id: client id is necessary if this is server. If client then NULL
 void process_incoming_packet(int socket, int type, int id)
 {
   char in[1];
@@ -144,7 +144,7 @@ void process_incoming_packet(int socket, int type, int id)
 
   while (1)
   {
-    if (read(socket, in, 1) == -1)
+    if (read(socket, in, 1) == 0 && type == 1)
     {
       exit(0);
     }
@@ -154,7 +154,10 @@ void process_incoming_packet(int socket, int type, int id)
       out[0] = in[0];
       for (size_t i = 1; i < DOUBLE_OUT; i++)
       {
-        read(socket, in, 1);
+        if (read(socket, in, 1) == 0 && type == 1)
+        {
+          exit(0);
+        }
         if (in[0] == '\0')
         {
           if (binaryZero < 0) // Binary zero was before. Need to drop the packet till next two binary zeroes
@@ -181,7 +184,7 @@ void process_incoming_packet(int socket, int type, int id)
             }
             else
             {
-              process_packet_server(socket, (void *)&received_info);
+              process_packet_server(socket, (void *)&received_info, id);
             }
             break;
           }

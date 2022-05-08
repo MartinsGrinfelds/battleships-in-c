@@ -11,7 +11,6 @@ int main()
 {
     //ncurses_test();
     int my_socket = 0;
-    int pid = 0;
 
     char *servername;
     struct sockaddr_in remote_address;
@@ -39,21 +38,14 @@ int main()
     }
     else
     {
-        while (1)
-        {
-            pid = fork();
 
-            if (pid == 0)
-            {
-                process_incoming_packet(my_socket, 0, 420);
-            }
-            else
-            {
-                ncurses_test(my_socket);
-                //client_gameloop();
-            }
 
-        }
+        //pid = fork();
+        client_gameloop(my_socket);
+
+
+        sleep(10);
+
     }
     return 0;
 }
