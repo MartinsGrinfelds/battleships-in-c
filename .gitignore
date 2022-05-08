@@ -1,3 +1,7 @@
 out
 temp_out
 .vscode/
+s
+*.o
+*.gch
+*executable
