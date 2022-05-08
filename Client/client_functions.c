@@ -24,17 +24,19 @@ void send_hello_packet(int socket, char* str) {
     // print_bytes((void*)&buffer, sizeof(buffer));
 
     memset(helloP.player_name, 0, sizeof(helloP.player_name));
-    helloP.player_name_length = 8;
+    
     strcpy(helloP.player_name, str);
+    helloP.player_name_length = strlen(str);
 
     testP.sequence_number = 10;
-    testP.packet_content_size = 9;
+    testP.packet_content_size = 0;
     testP.packet_type = 0;
 
     // testP.content[0] = *(char*)(void*)&helloP;
     memset(testP.content, 0, sizeof(testP.content));
     memcpy(testP.content, &helloP, sizeof(helloP));
-    testP.checksum = 7;
+
+    testP.checksum = get_checksum(testP);
     //memset(buffer, 0, sizeof(buffer));
     // print_bytes((void*)&testP, sizeof(testP));
     //printf("Double out: %d\nPacket size: %d\n", DOUBLE_OUT, sizeof(testP));
@@ -97,7 +99,7 @@ void ncurses_test(int socket)
     
 
     int input = 3;
-    noecho();
+    //noecho();
     curs_set(FALSE);
 
     char str[100];

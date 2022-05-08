@@ -15,6 +15,7 @@ char *shared_memory = NULL;
 int client_count = 0;
 int *shared_data = NULL;
 struct STATE *state = NULL;
+struct Lobby lobby;
 
 
 void get_shared_memory()
@@ -23,7 +24,17 @@ void get_shared_memory()
     //client_count = (int *)shared_memory;
     shared_data = (int *)shared_memory;
     state = (struct STATE *)(shared_memory + sizeof(int));
-    state->player_count = 0;
+    //state->player_count = 0;
+    lobby.player_count = 0;
+    int team = 1;
+    for (size_t i = 0; i < MAX_PLAYER_COUNT; i++)
+    {
+        lobby.players[i].player_ID = i + 1;
+        lobby.players[i].team_ID = team;
+        team = -team;
+        printf("Team: %d\n", team);
+    }
+    
 }
 
 void gameloop()
@@ -61,7 +72,7 @@ void process_packet_server(int socket, void* packet)
     {
         printf("PACKET CORRUPTED!!!\n");
     }
-    struct HELLO* hello_template = ((struct HELLO *)(void *)&packet_template.content);
+    
     // else if (packet_template.sequence_number < previous_sequence_number)
     // {
     //     /* code */
@@ -69,6 +80,13 @@ void process_packet_server(int socket, void* packet)
     switch (packet_template.packet_type)
     {
     case 0: // Hello packet
+        {
+            struct HELLO hello_template = *(struct HELLO *)(void *)&packet_template.content;
+            struct LPlayer player;
+            
+            strcpy(player.player_name, hello_template.player_name);
+            
+        }
         
         
         break;
