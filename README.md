@@ -2,7 +2,6 @@
 Multiplayer ship destruction game.
 
 ## To compile (On Linux):
-- make server
-- make client
+- make
 
 Binary files will be stored in out directory

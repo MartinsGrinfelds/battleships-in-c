@@ -11,7 +11,7 @@ void process_packet_client(void *packet)
 {
     struct GENERIC_PACKET *packet_template = (struct GENERIC_PACKET *)packet;
 
-    if (packet_template->packet_type == 0) {
+    if (packet_template->packet_type == 1) {
         char inputs[32];
         scanf("%s", inputs);
         if (strcmp(inputs, "ready") == 0 ) {

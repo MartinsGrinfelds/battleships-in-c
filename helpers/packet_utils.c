@@ -117,17 +117,17 @@ char *from_dec_to_hex(char *info)
 {
 }
 
-uint8_t get_checksum(void* packet)
+size_t get_checksum(void* packet)
 {
-  uint8_t *p = (uint8_t *)packet;
+  size_t *p = (size_t *)packet;
   size_t to_check_info_size = sizeof(struct GENERIC_PACKET) - sizeof(uint8_t);
-  uint8_t checksum = 0;
+  size_t checksum = 0;
   printf("Generic packet size -> %ld\n",to_check_info_size + 1);
   for (size_t i = 0; i < to_check_info_size; i++)
   {
     //printf("%ld\n", i);
     //printf("d: %d s: %s c: %c",packet[i], packet[i], packet[i]);
-    checksum = (uint8_t)p[i];
+    checksum ^= (size_t)p[i];
   }
   printf("checksum-> %d\n", checksum);
   return checksum;
