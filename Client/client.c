@@ -11,7 +11,6 @@ int main()
 {
     // ncurses_test();
     int my_socket = 0;
-    char buf[4256];
 
     char *servername;
     struct sockaddr_in remote_address;
@@ -19,16 +18,6 @@ int main()
     char inputs[100];
     char buffer[DOUBLE_OUT];
     char in[1];
-
-    struct HELLO hello;
-    int player_length = 8;
-    hello.player_name_length = player_length;
-    strcpy(hello.player_name, "Timothy");
-
-    int hello_size = sizeof(uint8_t) + sizeof(char) * player_length;
-
-    strcpy(buf, encode((void*) &hello, hello_size));
-    printf("%s", &buf);
 
     remote_address.sin_family = AF_INET;
     remote_address.sin_port = htons(PORT);
@@ -54,21 +43,6 @@ int main()
             // process_incoming_packet(my_socket, 0, 420);
 
             scanf("%s", inputs);
-<<<<<<< HEAD
-            //send(my_socket, inputs, strlen(inputs), 0);
-
-            send(my_socket, "\0", 1, 0); // Sending binary zero
-            send(my_socket, "\0", 1, 0); // As an end of packet
-
-            //send(my_socket, inputs, strlen(inputs), 0);
-            send(my_socket, buf, strlen(buf), 0);
-
-            send(my_socket, "\0", 1, 0); // Sending binary zero
-            send(my_socket, "\0", 1, 0); // As an end of packet
-
-            send(my_socket, buf, strlen(buf), 0);
-
-=======
             struct HELLO helloP;
             struct GENERIC_PACKET testP;
             // print_bytes((void*)&buffer, sizeof(buffer));
@@ -102,7 +76,6 @@ int main()
             send(my_socket, "\0", 1, 0); // Sending binary zero
             send(my_socket, "\0", 1, 0); // As an end of packet
             send(my_socket, buffer, encoded_length, 0);
->>>>>>> mkm_dev
             send(my_socket, "\0", 1, 0); // Sending binary zero
             send(my_socket, "\0", 1, 0); // As an end of packet
 
