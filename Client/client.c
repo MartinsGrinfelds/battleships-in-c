@@ -58,7 +58,7 @@ int main()
             // testP.content[0] = *(char*)(void*)&helloP;
             memset(testP.content, 0, sizeof(testP.content));
             memcpy(testP.content, &helloP, sizeof(helloP));
-            testP.checksum = 7;
+            testP.checksum = get_checksum(testP);
             printf("---START OF PACKET CONTENT---\n");
     printf("Sequence number: %d\n", testP.sequence_number);
     printf("Content size: %d\n", testP.packet_content_size);

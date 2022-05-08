@@ -14,12 +14,16 @@
 char *shared_memory = NULL;
 int client_count = 0;
 int *shared_data = NULL;
+struct STATE *state = NULL;
+
 
 void get_shared_memory()
 {
     shared_memory = mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     //client_count = (int *)shared_memory;
-    shared_data = (int *)(shared_memory);
+    shared_data = (int *)shared_memory;
+    state = (struct STATE *)(shared_memory + sizeof(int));
+    state->player_count = 0;
 }
 
 void gameloop()
@@ -30,27 +34,58 @@ void gameloop()
 
     while (1)
     {
-        for (i = 0; i < client_count; i++)
-        {
-            shared_data[MAX_CLIENTS + i] += shared_data[i];
-            shared_data[i] = 0;
-        }
+        // for (i = 0; i < client_count; i++)
+        // {
+        //     shared_data[MAX_CLIENTS + i] += shared_data[i];
+        //     shared_data[i] = 0;
+        // }
+        
         sleep(1);
+        printf("Loop...\n");
     }
 }
 
 void process_packet_server(void* packet)
 {
-    struct GENERIC_PACKET *packet_template = (struct GENERIC_PACKET *)packet;
+    struct GENERIC_PACKET packet_template = *((struct GENERIC_PACKET *)packet);
     
     
     printf("---START OF PACKET CONTENT---\n");
-    printf("Sequence number: %d\n", packet_template->sequence_number);
-    printf("Content size: %d\n", packet_template->packet_content_size);
-    printf("Packet type: %d\n", packet_template->packet_type);
-    printf("Checksum: %d\n", packet_template->checksum);
+    printf("Sequence number: %d\n", packet_template.sequence_number);
+    printf("Content size: %d\n", packet_template.packet_content_size);
+    printf("Packet type: %d\n", packet_template.packet_type);
+    printf("Checksum: %d\n", packet_template.checksum);
     printf("---END OF PACKET CONTENT---\n");
-    get_checksum(packet_template);
+    uint8_t packet_checksum = get_checksum(packet_template);
+    if (packet_template.checksum != packet_checksum)
+    {
+        printf("PACKET CORRUPTED!!!\n");
+    }
+    // else if (packet_template.sequence_number < previous_sequence_number)
+    // {
+    //     /* code */
+    // }
+    switch (packet_template.packet_type)
+    {
+    case 0: // Hello packet
+        /* code */
+        break;
+    case 2: // Message
+        /* code */
+        break;
+    case 4: // Client ready
+        /* code */
+        break;
+    case 8: // Client places ship
+        /* code */
+        break;
+    case 11: // Client move type
+        /* code */
+        break;
+    default:
+        printf("SOMEONE SENT SH!T TO THE SERVER!\n");
+        break;
+    }
     
 }
 

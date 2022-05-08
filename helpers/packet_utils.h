@@ -27,4 +27,4 @@ char *from_dec_to_hex(char *info);
 
 void process_incoming_packet(int socket, int type, int id);
 
-size_t get_checksum(void * packet);
+uint8_t get_checksum(struct GENERIC_PACKET packet);
