@@ -179,7 +179,7 @@ void process_incoming_packet(int socket, int type, int id)
                         printf("Decoded size: %ld\n", decoded_length);
                         if (type == 0)
                         {
-                          process_packet_client(&received_info);
+                          process_packet_client(socket, &received_info);
                         }
                         else
                         {
