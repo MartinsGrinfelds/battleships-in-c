@@ -1,12 +1,10 @@
-#include<stdint.h>
-#include<string.h>
-#include<stdio.h>
+#pragma once
 
 struct GENERIC_PACKET{
     uint8_t sequence_number;
     uint8_t packet_content_size; /* ?? */
     uint8_t packet_type;
-    char* content;   // Kādu izmēru šeit likt?
+    char content[2048];   // Kādu izmēru šeit likt?
     uint8_t checksum;
 };
 
@@ -26,7 +24,7 @@ struct Message {
     uint8_t sender_ID;
     uint8_t recipient_ID;
     uint8_t message_length; // ???
-    char* message;
+    char message[256];
 };
 
 
@@ -35,12 +33,12 @@ struct LPlayer {
     uint8_t team_ID;
     uint8_t ready;
     uint8_t player_name_length; // ??
-    char* player_name;
+    char player_name[64];
 };
 
 struct Lobby {
     uint8_t player_count; // ??
-    struct LPlayer* players;
+    struct LPlayer players[16];
 };
 
 struct Ready {
@@ -67,18 +65,18 @@ struct Player {
     uint8_t team_ID;
     uint8_t ready;
     uint8_t player_name_length; // ?
-    char* player_name;
+    char player_name[64];
     uint8_t active;
 };
 
 struct STATE {
     uint8_t x;
     uint8_t y;
-    uint8_t* battlefield; // laukuma izmērs reāli ir x*y
+    uint8_t battlefield[1024]; // laukuma izmērs reāli ir x*y
     uint8_t ship_count;
-    struct Ship* ships; //ships[ship_count]
+    struct Ship ships[16]; //ships[ship_count]
     uint8_t player_count;
-    struct Player* players;
+    struct Player players[16];
 };
 
 struct Jaliek {
