@@ -9,7 +9,7 @@
 
 int main()
 {
-    // ncurses_test();
+    ncurses_test();
     int my_socket = 0;
 
     char *servername;
@@ -42,7 +42,7 @@ int main()
         {
             // process_incoming_packet(my_socket, 0, 420);
 
-            scanf("%s", inputs);
+            //scanf("%s", inputs);
             struct HELLO helloP;
             struct GENERIC_PACKET testP;
             // print_bytes((void*)&buffer, sizeof(buffer));
@@ -60,11 +60,11 @@ int main()
             memcpy(testP.content, &helloP, sizeof(helloP));
             testP.checksum = get_checksum(testP);
             printf("---START OF PACKET CONTENT---\n");
-    printf("Sequence number: %d\n", testP.sequence_number);
-    printf("Content size: %d\n", testP.packet_content_size);
-    printf("Packet type: %d\n", testP.packet_type);
-    printf("Checksum: %d\n", testP.checksum);
-    printf("---END OF PACKET CONTENT---\n");
+            printf("Sequence number: %d\n", testP.sequence_number);
+            printf("Content size: %d\n", testP.packet_content_size);
+            printf("Packet type: %d\n", testP.packet_type);
+            printf("Checksum: %d\n", testP.checksum);
+            printf("---END OF PACKET CONTENT---\n");
             //memset(buffer, 0, sizeof(buffer));
             // print_bytes((void*)&testP, sizeof(testP));
             //printf("Double out: %d\nPacket size: %d\n", DOUBLE_OUT, sizeof(testP));
@@ -79,7 +79,7 @@ int main()
             send(my_socket, "\0", 1, 0); // Sending binary zero
             send(my_socket, "\0", 1, 0); // As an end of packet
 
-            // process_incoming_packet(my_socket, 0, 420);
+            process_incoming_packet(my_socket, 0, 420);
 
             // struct HELLO helloP;
         }
