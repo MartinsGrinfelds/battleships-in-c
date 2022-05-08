@@ -7,6 +7,6 @@ void get_shared_memory();
 
 void gameloop();
 
-void process_packet_server(void* packet);
+void process_packet_server(int socket, void* packet);
 
 void start_network();

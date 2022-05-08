@@ -41,11 +41,11 @@ void gameloop()
         // }
         
         sleep(1);
-        printf("Loop...\n");
+        //printf("Loop...\n");
     }
 }
 
-void process_packet_server(void* packet)
+void process_packet_server(int socket, void* packet)
 {
     struct GENERIC_PACKET packet_template = *((struct GENERIC_PACKET *)packet);
     
@@ -61,6 +61,7 @@ void process_packet_server(void* packet)
     {
         printf("PACKET CORRUPTED!!!\n");
     }
+    struct HELLO* hello_template = ((struct HELLO *)(void *)&packet_template.content);
     // else if (packet_template.sequence_number < previous_sequence_number)
     // {
     //     /* code */
@@ -68,7 +69,8 @@ void process_packet_server(void* packet)
     switch (packet_template.packet_type)
     {
     case 0: // Hello packet
-        /* code */
+        
+        
         break;
     case 2: // Message
         /* code */

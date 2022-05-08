@@ -181,7 +181,7 @@ void process_incoming_packet(int socket, int type, int id)
             }
             else
             {
-              process_packet_server((void *)&received_info);
+              process_packet_server(socket, (void *)&received_info);
             }
             break;
           }
