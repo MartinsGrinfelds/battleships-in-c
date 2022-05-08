@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <ncurses.h>
+#include <pthread.h>
 #include "../helpers/packet_types.h"
 #include "../helpers/packet_utils.h"
 
@@ -19,9 +20,33 @@ void process_packet_client(void *packet)
         }
         
     }
+
+//     switch (expression)
+// ​    {
+//     case constant1:
+//       // statements
+//       break;
+
+//     case constant2:
+//       // statements
+//       break;
+
+//     default:
+//       // default statements
+//     }
+
+
+    // LOGIC -> if the packet sent denotes an action required by client -> draw + user input, else just draw and wait for next
 }
 void process_user_input()
 {
+}
+
+void *myThreadFunction(void *vargp)
+{
+    sleep(1);
+    printf("Printing from Thread \n");
+    return NULL;
 }
 
 void ncurses_test()
@@ -31,6 +56,12 @@ void ncurses_test()
     int max_x, max_y;
     WINDOW *top;
     WINDOW *bottom;
+
+    pthread_t thread_id;
+    printf("Before Thread\n");
+    pthread_create(&thread_id, NULL, myThreadFunction, NULL);
+    pthread_join(thread_id, NULL);
+    printf("After Thread\n");
 
     initscr();
 
@@ -48,23 +79,50 @@ void ncurses_test()
     wsetscrreg(top, 1, max_y / 2 - 2);
     wsetscrreg(bottom, 1, max_y / 2 - 2);
 
+    int red_team_player_count = 0;
+    char red_team[16][64];
+    strcpy(red_team[0], "KASPARS");
+    strcpy(red_team[1], "ne-KASPARS");
+    strcpy(red_team[2], "daiga");
+
+
+    int blue_team_player_count = 0;
+    char blue_team[16][64];
+    strcpy(blue_team[0], "mezonis");
+    strcpy(blue_team[1], "darbinieks");
+    strcpy(blue_team[2], "darznieks");
+    
+
     int input = 3;
-    // noecho();
-    // curs_set(FALSE);
+    noecho();
+    curs_set(FALSE);
+
     char str[100];
     while (1)
     {
-        // clear(); // Clear the screen of all
+        //clear(); // Clear the screen of all
         //  previously-printed characters
-        wrefresh(top);
-        wrefresh(bottom);
-        mvwgetstr(bottom, input, 2, str);
+    
+
         werase(top);
-        box(top, 0, 0);
-        mvwprintw(top, 1, 2, str); // Print our "ball" at the current xy position
-        
         werase(bottom);
+
+        box(top, 0, 0);
         box(bottom, 0, 0);
+
+        mvwprintw(top, 1, 2, "Please enter your handle:\n"); 
+        wrefresh(top);
+
+
+
+        
+        mvwgetstr(bottom, input, 2, str);
+        
+        mvwprintw(bottom, input+1, 2, str); 
+        wrefresh(bottom);    
+        
+        
+        usleep(1000000); 
         // refresh();
         // int key_pressed = getch();
 
@@ -72,8 +130,8 @@ void ncurses_test()
         //     //wrefresh(top);
         // wrefresh(bottom);
         // }
-        usleep(30000); // Shorter delay between movements
-        x++;           // Advance the ball to the right
+         // Shorter delay between movements
+                // Advance the ball to the right
     }
 
     endwin(); // Restore normal terminal behavior
