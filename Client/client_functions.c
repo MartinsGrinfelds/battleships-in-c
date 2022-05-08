@@ -11,7 +11,7 @@ void process_packet_client(void *packet)
 {
     struct GENERIC_PACKET *packet_template = (struct GENERIC_PACKET *)packet;
 
-    if (packet_template->packet_type == 0) {
+    if (packet_template->packet_type == 1) {
         char inputs[32];
         scanf("%s", inputs);
         if (strcmp(inputs, "ready") == 0 ) {
@@ -48,7 +48,7 @@ void ncurses_test()
     wsetscrreg(top, 1, max_y / 2 - 2);
     wsetscrreg(bottom, 1, max_y / 2 - 2);
 
-    int input = 1;
+    int input = 3;
     // noecho();
     // curs_set(FALSE);
     char str[100];

@@ -9,7 +9,7 @@
 
 int main()
 {
-    // ncurses_test();
+    ncurses_test();
     int my_socket = 0;
 
     char *servername;
