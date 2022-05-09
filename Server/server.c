@@ -15,20 +15,29 @@
 
 int main()
 {
-    int pid = 0;
-    int i;
-    printf("SERVER started!\n");
-    get_shared_memory();
-    pid = fork();
+    
 
-    if (pid == 0)
-    {
-        start_network();
-    }
-    else
-    {
-        gameloop();
-    }
+    
+    int pid = 0;
+    //int i;
+    //printf("SERVER started!\n");
+    get_shared_memory();
+    //pid = fork();
+
+    //if (pid == 0)
+    //{
+       // gameloop();
+    //}
+    //else
+    //{
+
+            start_game();
+
+
+        
+    
+        
+    //}
 
     return 0;
 }

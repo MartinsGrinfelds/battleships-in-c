@@ -11,23 +11,34 @@
 #include "../helpers/packet_utils.h"
 #include "server_functions.h"
 
+int main_socket;
+struct sockaddr_in server_address;
+int client_socket;
+struct sockaddr_in client_address;
+int client_address_size = sizeof(client_address);
+
+uint8_t *kill_gameloop = NULL;
 char *shared_memory = NULL;
 int client_count = 0;
 int *shared_data = NULL;
 struct STATE *state = NULL;
 struct Lobby *lobby = NULL;
 int game_state = 0;
+int *player_sockets = NULL;
 
 void get_shared_memory()
 {
+    kill_gameloop = (uint8_t *)mmap(NULL, 1, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    *kill_gameloop = 0;
     shared_memory = mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     // client_count = (int *)shared_memory;
     shared_data = (int *)shared_memory;
     state = (struct STATE *)(shared_memory + sizeof(int));
     lobby = (struct Lobby *)(shared_memory + sizeof(int) + sizeof(struct STATE));
+    player_sockets = (int *)(shared_memory + sizeof(int) + sizeof(struct STATE) + sizeof(struct Lobby));
     lobby->player_count = 0;
     int team = 1;
-    for (size_t i = 0; i <  MAX_CLIENTS; i++)
+    for (size_t i = 0; i < MAX_CLIENTS; i++)
     {
         lobby->players[i].player_ID = i + 1;
         lobby->players[i].team_ID = team;
@@ -36,6 +47,7 @@ void get_shared_memory()
         // printf("Name: %s\n",lobby.players[i].player_name);
         // strcpy(lobby.players[i].player_name,"");
         team = -team;
+        player_sockets[i] = -1;
         // printf("Team: %d\n", team);
     }
 }
@@ -55,7 +67,7 @@ void remove_player_id(int player_id)
                 int inner_id = i;
                 for (; inner_id < MAX_CLIENTS; inner_id++)
                 {
-                    if (lobby->players[inner_id].ready == -1)
+                    if (lobby->players[inner_id].ready == 2)
                     {
                         inner_id--;
                         break;
@@ -63,32 +75,60 @@ void remove_player_id(int player_id)
                 }
                 if (i == inner_id)
                 {
-                    lobby->players[i].ready == -1;
+                    lobby->players[i].ready = 2;
+                    player_sockets[i] = -1;
                 }
                 else
                 {
                     strcpy(lobby->players[i].player_name, lobby->players[inner_id].player_name);
+                    player_sockets[i] = player_sockets[inner_id];
+                    lobby->players[inner_id].ready = 2;
                 }
-                return;
             }
-            
-            
         }
     }
 }
 
 void gameloop()
 {
-    printf("Starting...\n");
+    //printf("Starting...\n");
 
     int i = 0;
-
+    char buffer[DOUBLE_OUT];
     while (1)
     {
+        if (*kill_gameloop)
+        {
+            return;
+        }
+        
         switch (game_state)
         {
         case 0:
         {
+            for (size_t i = 0; i < MAX_CLIENTS; i++)
+            {
+                int player_socket = player_sockets[i];
+                if (player_socket < 0)
+                {
+                    break;
+                }
+
+                    struct GENERIC_PACKET packet_to_send;
+                packet_to_send.packet_type = 3;
+                memcpy(packet_to_send.content, &lobby, sizeof(struct Lobby));
+                packet_to_send.checksum = get_checksum(packet_to_send);
+                size_t encoded_length = 0;
+                void *encoded_packet = encode((void *)&packet_to_send, sizeof(packet_to_send), &encoded_length); // free encoded_packet?
+                memcpy(buffer, encoded_packet, encoded_length);
+                send(player_socket, "\0", 1, 0); // Sending binary zero
+                send(player_socket, "\0", 1, 0); // As an end of packet
+                send(player_socket, buffer, encoded_length, 0);
+                send(player_socket, "\0", 1, 0); // Sending binary zero
+                send(player_socket, "\0", 1, 0); // As an end of packet
+                
+                //printf("Sent to socket: %d Status: %ld\n", player_socket, listen(player_socket, 40));
+            }
         }
         break;
 
@@ -96,14 +136,8 @@ void gameloop()
             break;
         }
 
-        // for (i = 0; i < client_count; i++)
-        // {
-        //     shared_data[MAX_CLIENTS + i] += shared_data[i];
-        //     shared_data[i] = 0;
-        // }
-
         sleep(1);
-        // printf("Loop...\n");
+        printf("Loop...\n");
     }
 }
 
@@ -140,12 +174,12 @@ void process_packet_server(int socket, void *packet, int client_id)
         size_t i = 0;
         for (; i < MAX_CLIENTS; i++)
         {
-            printf("Lobby: %d\n", lobby->players[i].ready);
-            //lobby->players[i].ready--;
+            // printf("Lobby: %d\n", lobby->players[i].ready);
+            //  lobby->players[i].ready--;
             if (lobby->players[i].ready == 2)
             {
-                printf("Assigning zeroes!\n");
-                lobby->players[i].ready = 0;
+                // printf("Assigning zeroes!\n");
+
                 //*client_id = lobby.players[i].player_ID;
                 break;
             }
@@ -155,13 +189,20 @@ void process_packet_server(int socket, void *packet, int client_id)
             printf("Maxed out!\n");
             exit(0); // exit or return?
         }
-        printf("Hello packet received!\n");
+        // printf("Hello packet received!\n");
         struct HELLO hello_template = *(struct HELLO *)(void *)&packet_template.content;
-
-        struct LPlayer player;
-        strcpy(player.player_name, hello_template.player_name);
+        player_sockets[i] = socket;
+        // printf("Player socket: %d\n", socket);
+        lobby->players[i].ready = 0;
+        strcpy(lobby->players[i].player_name, hello_template.player_name);
+        struct ACK ack;
+        ack.player_ID = i + 1;
+        ack.team_ID = lobby->players[i].team_ID;
+        // struct LPlayer player;
+        // strcpy(player.player_name, hello_template.player_name);
         struct GENERIC_PACKET packet_to_send;
         packet_to_send.packet_type = 1;
+        memcpy(packet_to_send.content, &ack, sizeof(ack));
         packet_to_send.checksum = get_checksum(packet_to_send);
         size_t encoded_length = 0;
         void *encoded_packet = encode((void *)&packet_to_send, sizeof(packet_to_send), &encoded_length); // free encoded_packet?
@@ -192,15 +233,9 @@ void process_packet_server(int socket, void *packet, int client_id)
     }
 }
 
-void start_network()
+void start_game()
 {
-    int main_socket;
-    struct sockaddr_in server_address;
-
-    int client_socket;
-    struct sockaddr_in client_address;
-    int client_address_size = sizeof(client_address);
-
+    int first_time = 1;
     main_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     if (main_socket < 0)
@@ -231,9 +266,9 @@ void start_network()
 
     while (1)
     {
-        int new_client_id = 1;
+        int new_client_id = 0;
         int cpid = 0;
-
+        
         client_socket = accept(main_socket, (struct sockaddr *)&client_address, &client_address_size);
         if (client_socket < 0)
         {
@@ -242,30 +277,45 @@ void start_network()
         }
 
         new_client_id = client_count;
-        client_count += 1;
         printf("Client count=%d\n", client_count);
-        cpid = fork();
-
-        if (cpid == 0)
+        client_count += 1;
+        //cpid = ;
+        //printf("Gameloop!!!\n");
+        *kill_gameloop = (uint8_t)1;
+        if (fork() == 0)
         {
-            close(main_socket);
+            while (*kill_gameloop && !first_time);
+            if(first_time)
+            {
+                *kill_gameloop = 0;
+                first_time = 0;
+            }
+            printf("Gameloop!!!\n");
+            gameloop();
+            *kill_gameloop = 0;
+            exit(0);
+            //close(main_socket);
+        }
+        else
+        {
+            //printf("Gameloop!!!\n");
             cpid = fork();
 
             if (cpid == 0)
             {
                 process_incoming_packet(client_socket, 1, new_client_id);
+                printf("Client %d disconnected or error happened\n", new_client_id);
+                remove_player_id(new_client_id);
                 exit(0);
             }
-            else
-            {
-                wait(NULL);
-                printf("Orphaning succesful: %d\n", new_client_id);
+            //else
+            //{
+                //wait(NULL);
+                
+                
                 // client_count -= 1;
-                exit(0);
-            }
-        }
-        else
-        {
+                //exit(0);
+            //}
             //close(client_socket);
         }
     }
