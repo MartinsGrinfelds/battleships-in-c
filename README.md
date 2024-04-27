@@ -1,7 +1,11 @@
 # Battleships
 Multiplayer ship destruction game.
 
-## To compile (On Linux):
-- make
+## Libraries required
 
-Binary files will be stored in out directory
+### WSL
+- `libncurses-dev`
+- `build-essential`
+
+## To compile (On Linux):
+`make`
