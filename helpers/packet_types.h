@@ -1,4 +1,5 @@
 #pragma once
+#define MAX_PLAYER_COUNT 16
 
 struct GENERIC_PACKET{
     uint8_t sequence_number;
@@ -38,7 +39,7 @@ struct LPlayer {
 
 struct Lobby {
     uint8_t player_count; // ??
-    struct LPlayer players[16];
+    struct LPlayer players[MAX_PLAYER_COUNT];
 };
 
 struct Ready {
@@ -76,7 +77,7 @@ struct STATE {
     uint8_t ship_count;
     struct Ship ships[16]; //ships[ship_count]
     uint8_t player_count;
-    struct Player players[16];
+    struct Player players[MAX_PLAYER_COUNT];
 };
 
 struct Jaliek {

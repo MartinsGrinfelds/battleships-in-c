@@ -38,14 +38,14 @@ int main()
     }
     else
     {
-        while (1)
-        {
-            // process_incoming_packet(my_socket, 0, 420);
 
-            process_incoming_packet(my_socket, 0, 420);
 
-            // struct HELLO helloP;
-        }
+        //pid = fork();
+        client_gameloop(my_socket);
+
+
+        sleep(10);
+
     }
     return 0;
 }

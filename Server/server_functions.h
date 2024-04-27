@@ -5,8 +5,10 @@
 
 void get_shared_memory();
 
+void remove_player_id(int player_id);
+
 void gameloop();
 
-void process_packet_server(int socket, void* packet);
+void process_packet_server(int socket, void *packet, int client_id);
 
-void start_network();
+void start_game();
