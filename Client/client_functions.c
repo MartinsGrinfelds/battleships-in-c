@@ -94,7 +94,7 @@ void handle_second_screen(int socket) { // This is for user input through the bo
             
             mvwgetstr(bottom, input, 2, str);
         
-            mvwprintw(bottom, input+1, 2, str); 
+            mvwprintw(bottom, input+1, 2, "%s", str);
             wrefresh(bottom);  
             game_screen_state++;
 
