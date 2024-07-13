@@ -5,3 +5,6 @@ s
 *.o
 *.gch
 *executable
+a.out
+Battleships_Server
+Battleships_Client

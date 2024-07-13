@@ -7,8 +7,8 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
-#include "../helpers/packet_types.h"
-#include "../helpers/packet_utils.h"
+#include "../packets/packet_types.h"
+#include "../packets/packet_utils.h"
 #include "server_functions.h"
 
 int main_socket;
@@ -16,6 +16,7 @@ struct sockaddr_in server_address;
 int client_socket;
 struct sockaddr_in client_address;
 int client_address_size = sizeof(client_address);
+
 
 uint8_t *kill_gameloop = NULL;
 char *shared_memory = NULL;
@@ -114,7 +115,7 @@ void gameloop()
                     break;
                 }
 
-                    struct GENERIC_PACKET packet_to_send;
+                    struct GenericPacket packet_to_send;
                 packet_to_send.packet_type = 3;
                 memcpy(packet_to_send.content, &lobby, sizeof(struct Lobby));
                 packet_to_send.checksum = get_checksum(packet_to_send);
@@ -144,7 +145,7 @@ void gameloop()
 void process_packet_server(int socket, void *packet, int client_id)
 {
     char buffer[DOUBLE_OUT];
-    struct GENERIC_PACKET packet_template = *((struct GENERIC_PACKET *)packet);
+    struct GenericPacket packet_template = *((struct GenericPacket *)packet);
 
     printf("---START OF PACKET CONTENT---\n");
     printf("Sequence number: %d\n", packet_template.sequence_number);
@@ -200,7 +201,7 @@ void process_packet_server(int socket, void *packet, int client_id)
         ack.team_ID = lobby->players[i].team_ID;
         // struct LPlayer player;
         // strcpy(player.player_name, hello_template.player_name);
-        struct GENERIC_PACKET packet_to_send;
+        struct GenericPacket packet_to_send;
         packet_to_send.packet_type = 1;
         memcpy(packet_to_send.content, &ack, sizeof(ack));
         packet_to_send.checksum = get_checksum(packet_to_send);

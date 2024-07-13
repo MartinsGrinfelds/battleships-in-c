@@ -3,8 +3,8 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "../helpers/packet_types.h"
-#include "../helpers/packet_utils.h"
+#include "../packets/packet_types.h"
+#include "../packets/packet_utils.h"
 #include "client_functions.h"
 
 int main()

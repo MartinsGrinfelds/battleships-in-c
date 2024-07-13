@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <pthread.h>
-#include "../helpers/packet_types.h"
-#include "../helpers/packet_utils.h"
+#include "../packets/packet_types.h"
+#include "../packets/packet_utils.h"
 
 WINDOW *top;
 WINDOW *bottom;
@@ -19,7 +19,7 @@ void send_hello_packet(int socket, char* str) {
 
         //scanf("%s", inputs);
     struct HELLO helloP;
-    struct GENERIC_PACKET testP;
+    struct GenericPacket testP;
     // print_bytes((void*)&buffer, sizeof(buffer));
 
     memset(helloP.player_name, 0, sizeof(helloP.player_name));
@@ -125,7 +125,7 @@ void handle_second_screen(int socket) { // This is for user input through the bo
 void process_packet_client(int socket, void *packet)
 {
     printf("Entering process_packet_client\n");
-    struct GENERIC_PACKET *packet_template = (struct GENERIC_PACKET *)packet;
+    struct GenericPacket *packet_template = (struct GenericPacket *)packet;
 
     int received_packet_type = packet_template->packet_type;
 

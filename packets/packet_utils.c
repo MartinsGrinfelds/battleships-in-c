@@ -6,7 +6,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include "../Server/server_functions.h"
-#include "../Client/client_functions.h"
 // ************************
 
 char *encode(char *info, size_t size, size_t *encoded_length)
@@ -116,10 +115,10 @@ char *from_dec_to_hex(char *info)
 {
 }
 
-uint8_t get_checksum(struct GENERIC_PACKET packet)
+uint8_t get_checksum(struct GenericPacket packet)
 {
   uint8_t *p = (uint8_t *)(void *)&packet;
-  size_t to_check_info_size = sizeof(struct GENERIC_PACKET) - sizeof(uint8_t);
+  size_t to_check_info_size = sizeof(struct GenericPacket) - sizeof(uint8_t);
   uint8_t checksum = 0;
   // printf("Generic packet size -> %ld\n", to_check_info_size + 1);
   for (int i = 0; i < 100; i++)

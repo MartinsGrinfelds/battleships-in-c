@@ -7,11 +7,11 @@
 // ************************
 
 #define MAX_PACKET_SIZE 2060
-#define DOUBLE_OUT MAX_PACKET_SIZE*2
+#define DOUBLE_OUT MAX_PACKET_SIZE * 2
 
-char *encode(char *info, size_t size, size_t* encoded_length);
+char *encode(char *info, size_t size, size_t *encoded_length);
 
-char* decode(char *info, size_t* decoded_length);
+char *decode(char *info, size_t *decoded_length);
 
 void print_smth(char *info);
 
@@ -27,4 +27,4 @@ char *from_dec_to_hex(char *info);
 
 void process_incoming_packet(int socket, int type, int id);
 
-uint8_t get_checksum(struct GENERIC_PACKET packet);
+uint8_t get_checksum(struct GenericPacket packet);
