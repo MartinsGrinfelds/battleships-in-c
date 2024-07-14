@@ -1,0 +1,23 @@
+name: C/C++ CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up build version
+      id: build_version
+      run: echo "BATTLESHIPS_VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
+    - name: Build
+      run: make all
+      env:
+        VERSION: ${{ env.BATTLESHIPS_VERSION }}
