@@ -1,4 +1,6 @@
 # Battleships
+[![C/C++ CI](https://github.com/MartinsGrinfelds/battleships-in-c/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/MartinsGrinfelds/battleships-in-c/actions/workflows/c-cpp.yml)
+
 Multiplayer ship destruction game. Generalized game rules are within wiki page.
 
 ## Prerequisites
