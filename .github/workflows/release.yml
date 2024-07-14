@@ -1,0 +1,27 @@
+name: Release
+
+on:
+    workflow_run:
+        workflows: ["Build"]
+        types: 
+        - completed
+    push:
+        tags:
+        - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build run artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          files: |
+            Battleships_Server
+            Battleships_Client

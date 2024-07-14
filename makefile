@@ -18,9 +18,10 @@ endif
 SERVER_TARGET=Battleships_Server
 SERVER_DEPENDENCIES=testing.o
 CLIENT_TARGET=Battleships_Client
-# CLIENT_DEPENDENCIES=testing.o -lncurses -pthread
+#  -lncurses -pthread
+CLIENT_DEPENDENCIES=testing.o
 
-all: $(SERVER_TARGET) #$(CLIENT_TARGET)
+all: $(SERVER_TARGET) $(CLIENT_TARGET)
 
 %.o: %.c
 	$(COMPILER) $(CFLAGS) -DBATTLESHIPS_VERSION=\"$(VERSION)\" -c $< -o $@
