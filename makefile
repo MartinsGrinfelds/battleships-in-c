@@ -1,15 +1,45 @@
-.PHONY : executables
-executables : Client_executable Server_executable
-Client_executable: Client/client.c server_functions.o client_functions.o packet_utils.o
-	gcc Client/client.c server_functions.o client_functions.o packet_utils.o -lncurses -pthread -o Client_executable
-Server_executable: Server/server.c server_functions.o client_functions.o packet_utils.o
-	gcc Server/server.c server_functions.o client_functions.o packet_utils.o -lncurses -pthread -o Server_executable
-server_functions.o: Server/server_functions.c Server/server_functions.h helpers/packet_utils.c helpers/packet_utils.h helpers/packet_types.h
-	gcc -c Server/server_functions.c helpers/packet_utils.c
-client_functions.o: Client/client_functions.c Client/client_functions.h helpers/packet_utils.c helpers/packet_utils.h helpers/packet_types.h
-	gcc -c Client/client_functions.c helpers/packet_utils.c
-packet_utils.o: Server/server_functions.c Server/server_functions.h Client/client_functions.c Client/client_functions.h helpers/packet_utils.c helpers/packet_utils.h helpers/packet_types.h
-	gcc -c Server/server_functions.c Client/client_functions.c helpers/packet_utils.c
-.PHONY : clean
-clean :
-	rm -f *executable *.o
+# To better understand this Makefile:
+# TARGET: DEPENDENCY <- Structure
+# $< <- Takes dependency file names, this can be used as a variable in command
+# $@ <- Takes target name, this can be used as a variable in command
+
+# Do not associate target with file name
+.PHONY: all run_client run_server clean
+COMPILER=gcc
+# Some flags for good coding practices
+CFLAGS=-Wall -Wextra
+# Automatically get the version from Git tags. Provide info if uncommited changes.
+ifndef VERSION
+  VERSION = $(shell git describe --tags --always --dirty)
+else
+  $(info VERSION is already defined: $(VERSION))
+endif
+
+SERVER_TARGET=Battleships_Server
+SERVER_DEPENDENCIES=testing.o
+CLIENT_TARGET=Battleships_Client
+# CLIENT_DEPENDENCIES=testing.o -lncurses -pthread
+
+all: $(SERVER_TARGET) #$(CLIENT_TARGET)
+
+%.o: %.c
+	$(COMPILER) $(CFLAGS) -DBATTLESHIPS_VERSION=\"$(VERSION)\" -c $< -o $@
+
+$(SERVER_TARGET): $(SERVER_DEPENDENCIES)
+	echo "Compiling $@ Version: $(VERSION)"
+	$(COMPILER) $(CFLAGS) $< -o $@
+
+$(CLIENT_TARGET): $(CLIENT_DEPENDENCIES)
+	echo "Compiling $@ Version: $(VERSION)"
+	$(COMPILER) $(CFLAGS) $< -o $@
+
+run_server: $(SERVER_TARGET)
+	./$(SERVER_TARGET)
+
+run_client: $(CLIENT_TARGET)
+	./$(CLIENT_TARGET)
+
+clean:
+	rm -f *.o *.out
+	rm -f $(SERVER_TARGET)
+	rm -f $(CLIENT_TARGET)
