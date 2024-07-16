@@ -1,6 +1,4 @@
 # Battleships
-[![C/C++ CI](https://github.com/MartinsGrinfelds/battleships-in-c/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/MartinsGrinfelds/battleships-in-c/actions/workflows/c-cpp.yml)
-
 Multiplayer ship destruction game. Generalized game rules are within wiki page.
 
 ## Prerequisites
@@ -29,3 +27,34 @@ if you know how to.
 > All commands here will automatically do things necessary.
 > That means run command will automatically do build action if necessary.
 
+## Adding features and creating a release
+There is an automatic release creation system to ensure binary files and
+changenotes availability for everyone and as fast as possible.
+Developing a feature requires a unique branch that should be created
+from issue or using your own preferred name.
+
+> [!NOTE]
+> After a feature is developed we should merge it to a branch that
+> will be used for code testing. After then next release branch
+> should be merged to main.
+
+### Creating a release (for maintainers)
+To create a release we should use git tag to mark a commit that will be used
+as a release codebase. Make sure code in repo and locally is up to date.
+```sh
+# When you are at a commit code that you would like to use as a release
+git tag v1.1.1
+```
+```sh
+# If broken or wrong commit was tagged before we need to replace existing tag
+git tag -f v1.1.1
+```
+```sh
+# To push a tag to repository and trigger automatic build
+git push origin tag v1.1.1
+```
+
+After check release draft within GitHub.
+
+> [!IMPORTANT]
+> Branch is not the same as tag.

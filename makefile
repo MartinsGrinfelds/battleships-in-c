@@ -15,9 +15,9 @@ else
   $(info VERSION is already defined: $(VERSION))
 endif
 
-SERVER_TARGET=Battleships_Server
+SERVER_TARGET=BattleshipsServer
 SERVER_DEPENDENCIES=testing.o
-CLIENT_TARGET=Battleships_Client
+CLIENT_TARGET=BattleshipsClient
 #  -lncurses -pthread
 CLIENT_DEPENDENCIES=testing.o
 

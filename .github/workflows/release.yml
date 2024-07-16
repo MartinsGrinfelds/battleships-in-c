@@ -1,27 +1,35 @@
-name: Release
+name: Build And Release
+# This workflow automatically will make a release
 
 on:
-    workflow_run:
-        workflows: ["Build"]
-        types: 
-        - completed
     push:
         tags:
         - "v*"
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+    build:
+        uses: ./.github/workflows/build.yml
 
-    steps:
-      - name: Download all build run artifacts
-        uses: actions/download-artifact@v4
+    release:
+      needs: build
+      runs-on: ubuntu-latest
 
-      - name: Create Release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: true
-          files: |
-            Battleships_Server
-            Battleships_Client
+      steps:
+          - name: Download all workflow run artifacts
+            uses: actions/download-artifact@v4
+
+          - name: Read build version
+            id: read_version
+            run: |
+                  BATTLESHIPS_VERSION=$(cat build-version/build_version.txt)
+                  echo "BATTLESHIPS_VERSION=$BATTLESHIPS_VERSION" >> $GITHUB_ENV
+
+          - name: Create Release
+            uses: marvinpinto/action-automatic-releases@latest
+            with:
+              repo_token: "${{ secrets.GITHUB_TOKEN }}"
+              automatic_release_tag: ${{ env.BATTLESHIPS_VERSION }}
+              draft: true
+              files: |
+                  Battleships_Server
+                  Battleships_Client
