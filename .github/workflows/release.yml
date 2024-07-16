@@ -31,5 +31,5 @@ jobs:
               automatic_release_tag: ${{ env.BATTLESHIPS_VERSION }}
               draft: true
               files: |
-                  Battleships_Server
-                  Battleships_Client
+                  BattleshipsServer
+                  BattleshipsClient
