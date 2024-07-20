@@ -20,10 +20,12 @@ SERVER_TARGET=BattleshipsServer
 SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o
 CLIENT_TARGET=BattleshipsClient
 #  -lncurses -pthread
-CLIENT_DEPENDENCIES=testing.o
+CLIENT_DEPENDENCIES=client.o
 
 all: $(SERVER_TARGET) $(CLIENT_TARGET)
 
+# Here double quotes within single quotes '"$(VERSION)"' are used because VScode doesn't show any warnings this way.
+# Other working way is to use backslash \"$(VERSION)\" although it is working there was IDE warning within C code.
 %.o: %.c
 	$(COMPILER) $(CFLAGS) -DBATTLESHIPS_VERSION='"$(VERSION)"' -c $< -o $@
 
