@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h> // exit()
-#include "graphical/text_formatter.h"
-#include "packets/connection.h"
+#include "graphical/text_formatter.h" // print_failure()
+#include "packets/connection.h" 
 
 #define PORT 12345
 #define MAX_REQUESTS 20
@@ -55,7 +55,8 @@ int main()
     printf("Version: %s\n", APP_VERSION);
     startup_server();
 
-    // Accept client socket and get HELLO packet
+    // Gameloop can start here.
+    // Accept client socket and get HELLO packet.
     register_client();
 
     close_socket(server_tcp_socket);

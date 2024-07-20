@@ -20,7 +20,7 @@ SERVER_TARGET=BattleshipsServer
 SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o
 CLIENT_TARGET=BattleshipsClient
 #  -lncurses -pthread
-CLIENT_DEPENDENCIES=client.o
+CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o
 
 all: $(SERVER_TARGET) $(CLIENT_TARGET)
 

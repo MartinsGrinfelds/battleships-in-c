@@ -21,15 +21,28 @@ int bind_socket_to_address(int socket, uint16_t port);
 /// @return Listen response.
 int listen_to_socket(int socket, int max_requests);
 
+/// @brief Connect given socket to IP using port.
+/// @param socket File descriptor for socket.
+/// @param port Port for target socket.
+/// @param ip IP for target socket.
+/// @return 0 on success, -1 on failure.
+int connect_socket(int socket, uint16_t port, char *ip);
+
 /// @brief Accept connection provided socket.
 /// @param socket File descriptor for socket.
 /// @return Connected socket/file_descriptor.
 int accept_connection(int socket);
 
-/// @brief Receives generic packetr from given socket/file_descriptor.
+/// @brief Receives generic packet from given socket/file_descriptor.
 /// @param socket File descriptor for socket.
 /// @return Pointer to GenericPacket created by malloc.
 struct GenericPacket* receive_generic_packet(int socket);
+
+/// @brief Sends generic packket to given socket/file_descriptorl
+/// @param socket File descriptor for socket.
+/// @param packet Pointer to GenericPacket to sent.
+/// @return Zero if success.
+int send_generic_packet(int socket, struct GenericPacket * packet);
 
 /// @brief Closes socket.
 /// @param socket File descriptor to close.
