@@ -3,7 +3,7 @@
 #include "shared_packets.h" // packets used by battleships
 
 // Need to check if content is not too large if so then there is a problem
-#define MAX_CONTENT_SIZE 16384
+#define MAX_CONTENT_SIZE 100000
 
 /// @brief Creates a TCP socket. Can be used by server and client. Prints out any errors if there are some.
 /// @return Socket number (negative = errors).

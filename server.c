@@ -1,7 +1,8 @@
 #include <stdio.h>
-#include <stdlib.h> // exit()
+#include <stdlib.h> // exit(), size_t, malloc
 #include "graphical/text_formatter.h" // print_failure()
-#include "packets/connection.h" 
+#include "packets/connection.h"
+#include "packets/shared_packets.h"
 
 #define PORT 12345
 #define MAX_REQUESTS 20
@@ -34,19 +35,25 @@ void startup_server()
 /// @brief Registers client socket to use. Waits HELLO package and sends ACK.
 void register_client()
 {
+    // TODO: Remove socket blocking and if no connection go to main gameloop.
     int client_socket = accept_connection(server_tcp_socket);
+    // TODO: Place this as a status for each client to wait for HELLO. If nothing go to main gameloop.
     struct GenericPacket *client_packet = receive_generic_packet(client_socket);
-    printf("Packet received from client with socket ID: %d\n", client_socket);
-    printf("Client packet Nr: %d\n", client_packet->sequence_number);
-    printf("Client packet content size: %d\n", client_packet->packet_content_size);
-    printf("Client packet type: %d\n", client_packet->packet_type);
-    printf("Client packet checksum: %d\n", client_packet->checksum);
+    if (client_packet->packet_type != 0)
+    {
+        // TODO: Send ACK with player_id=0.
+    }
+    // TODO: Send ACK with player_id and team_id. If game started then team_id=0.
+    struct HelloPacket hello_packet;
+    hello_packet_deserialization(client_packet->content, &hello_packet);
+    printf("Welcome client (%s) ID: %d\n", hello_packet.name, client_socket);
+    printf("Client name size: %d\n", hello_packet.name_length);
 
     // THIS IS TEMPORARY!!! Just to close client connection.
     free(client_packet->content);
     free(client_packet);
     close_socket(client_socket);
-    printf("Client socked with ID %d closed!", client_socket);
+    printf("Client socked with ID %d closed!\n", client_socket);
 }
 
 int main()

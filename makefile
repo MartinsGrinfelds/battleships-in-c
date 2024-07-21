@@ -17,10 +17,10 @@ else
 endif
 
 SERVER_TARGET=BattleshipsServer
-SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o
+SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o packets/shared_packets.o
 CLIENT_TARGET=BattleshipsClient
 #  -lncurses -pthread
-CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o
+CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o graphical/ui_functions.o packets/shared_packets.o
 
 all: $(SERVER_TARGET) $(CLIENT_TARGET)
 

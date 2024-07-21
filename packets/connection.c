@@ -2,7 +2,7 @@
 #include <sys/socket.h>     // socket(), AF_INET, SOCK_STREAM
 #include <netinet/ip.h>     // sockaddr_in struct
 #include <stdio.h>          // perror()
-#include <stdlib.h>         // exit()
+#include <stdlib.h>         // exit(), size_t, malloc
 #include <string.h>         // memset()
 #include <unistd.h>         // close()
 #include "shared_packets.h" // packets used by battleships
@@ -121,11 +121,12 @@ struct GenericPacket *receive_generic_packet(int socket)
     if (to_receive > MAX_CONTENT_SIZE)
     {
         printf("Received content size definition seems too big: %ld bytes Max allowed is: %d bytes\n", to_receive, MAX_CONTENT_SIZE);
+        received_packet->packet_content_size = 0;
         return received_packet;
     }
     // Call free(address) for this one or enjoy memory leak 😍
     received_packet->content = malloc(to_receive);
-    recv_status = recv(socket, &received_packet->content, to_receive, 0);
+    recv_status = recv(socket, received_packet->content, to_receive, 0);
     if (recv_status != to_receive)
     {
         printf("Received content size seems off. Received: %ld bytes Expected: %ld bytes\n", to_receive, recv_status);

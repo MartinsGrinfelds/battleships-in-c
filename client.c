@@ -1,7 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h> // exit()
+#include <stdlib.h> // exit(), size_t, malloc
 #include "packets/connection.h"
 #include "graphical/text_formatter.h" // print_failure()
+#include "graphical/ui_functions.h" // get_user_input()
+#include <string.h> // strlen()
 
 #define HOST "127.0.0.1"
 #define PORT 12345
@@ -13,8 +15,9 @@ char* APP_VERSION = "UNDEFINED!";
 #endif
 
 int client_tcp_socket = -1;
+int client_packet_nr = 0; // Not used yet. To be implemented.
 
-/// @brief Does client startup actions such as socket creation, binding, connection
+/// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
     // Call socket creation
@@ -22,17 +25,35 @@ void startup_client()
     if(connect_socket(client_tcp_socket, PORT, HOST) != 0)
     {
         print_failure("Connection to server failed!\n");
+        close_socket(client_tcp_socket);
         exit(1);
     }
-    // Here probably UI should be launched.
-    struct GenericPacket test_packet;
-    test_packet.sequence_number = 1;
-    test_packet.packet_content_size = 0;
-    test_packet.packet_type = 13;
-    test_packet.checksum = 69;
-    send_generic_packet(client_tcp_socket, &test_packet);
+}
 
-    // THIS IS TEMPORARY!!! Just to close client connection.
+int register_client()
+{
+    // Replace code with one using graphical library.
+    char *user_name = get_user_input(5, 30);
+
+    struct HelloPacket client_hello;
+    client_hello.name = user_name;
+    client_hello.name_length = (uint8_t)strlen(user_name);
+    size_t serialized_packet_size;
+    char *serialized_packet = hello_packet_serialization(&client_hello, &serialized_packet_size);
+    struct GenericPacket generic_hello;
+    generic_hello.packet_type = 0;
+    generic_hello.packet_content_size = serialized_packet_size;
+    generic_hello.content = serialized_packet;
+    generic_hello.checksum = 0;
+    send_generic_packet(client_tcp_socket, &generic_hello);
+    free(user_name);
+    free(serialized_packet);
+    return 0;
+}
+
+/// @brief Executes client shutdown actions (such as main socket closing).
+void shutdown_client()
+{
     close_socket(client_tcp_socket);
 }
 
@@ -42,8 +63,11 @@ int main()
     printf("Version: %s\n", APP_VERSION);
 
     startup_client();
+    register_client();
     // After startup initiate HELLO packket.
     // Game loop can start here.
+
+    shutdown_client();
     return 0;
 
 }
