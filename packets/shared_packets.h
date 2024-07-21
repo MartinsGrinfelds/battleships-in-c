@@ -19,6 +19,13 @@ struct HelloPacket
     char *name;
 };
 
+struct AckPacket
+{
+    uint8_t player_id;
+    uint8_t team_id;
+};
+
+
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
 /// @param packet Pointer to Hello packet.
 /// @param final_size Pointer to serialization size after serialization.

@@ -34,7 +34,6 @@ int register_client()
 {
     // Replace code with one using graphical library.
     char *user_name = get_user_input(5, 30);
-
     struct HelloPacket client_hello;
     client_hello.name = user_name;
     client_hello.name_length = (uint8_t)strlen(user_name);
@@ -48,6 +47,19 @@ int register_client()
     send_generic_packet(client_tcp_socket, &generic_hello);
     free(user_name);
     free(serialized_packet);
+    struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
+
+    if(server_packet->packet_type != 1)
+    {
+        print_failure("Registration failed!\n");
+        close_socket(client_tcp_socket);
+        exit(1);
+    }
+    print_success("Registration Successful!\n");
+    printf("Your Player ID: %d\n", ((struct AckPacket *)server_packet->content)->player_id);
+    printf("Your Team ID: %d\n", ((struct AckPacket *)server_packet->content)->team_id);
+    free(server_packet->content);
+    free(server_packet);
     return 0;
 }
 

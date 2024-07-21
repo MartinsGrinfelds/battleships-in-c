@@ -7,6 +7,7 @@
 #include <unistd.h>         // close()
 #include "shared_packets.h" // packets used by battleships
 #include <arpa/inet.h>      // inet_pton()
+#include <fcntl.h>          // F_GETFL, O_NONBLOCK, F_SETFL
 
 int create_socket()
 {
@@ -49,6 +50,24 @@ int listen_to_socket(int socket, int max_requests)
     }
     printf("(Listening!) Listen response: %d For socket: %d\n", listen_response, socket);
     return listen_response;
+}
+
+int set_socket_non_blocking(int socket)
+{
+    int flags = fcntl(socket, F_GETFL, 0);
+    if (flags == -1)
+    {
+        perror("fcntl F_GETFL");
+        return 1;
+    }
+
+    flags |= O_NONBLOCK;
+    if (fcntl(socket, F_SETFL, flags) == -1)
+    {
+        perror("fcntl F_SETFL");
+        return 2;
+    }
+    return 0;
 }
 
 int connect_socket(int socket, uint16_t port, char *ip)

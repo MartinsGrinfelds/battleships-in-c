@@ -49,6 +49,16 @@ void register_client()
     printf("Welcome client (%s) ID: %d\n", hello_packet.name, client_socket);
     printf("Client name size: %d\n", hello_packet.name_length);
 
+    struct GenericPacket generic_packet;
+    generic_packet.packet_content_size = sizeof(struct AckPacket);
+    generic_packet.packet_type = 1;
+    struct AckPacket ack_packet;
+    ack_packet.player_id = 66;
+    ack_packet.team_id = 69;
+    printf("Packet contentr pointer sizeof: %ld Ack packet pointer sizeof: %ld\n", sizeof(generic_packet.content), sizeof(&ack_packet));
+    generic_packet.content = (char *)&ack_packet;
+    send_generic_packet(client_socket, &generic_packet);
+
     // THIS IS TEMPORARY!!! Just to close client connection.
     free(client_packet->content);
     free(client_packet);

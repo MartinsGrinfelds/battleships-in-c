@@ -21,6 +21,13 @@ int bind_socket_to_address(int socket, uint16_t port);
 /// @return Listen response.
 int listen_to_socket(int socket, int max_requests);
 
+/// @brief Makes given socket non-blocking for possibility to do other tasks before checking socket again.
+/// @brief To check if would block check errno (errno == EWOULDBLOCK || errno == EAGAIN) if recv or socket command returns < 0.
+/// @brief Else there is problem with socket.
+/// @param socket File descriptor for socket.
+/// @return 0 on success.
+int set_socket_non_blocking(int socket);
+
 /// @brief Connect given socket to IP using port.
 /// @param socket File descriptor for socket.
 /// @param port Port for target socket.

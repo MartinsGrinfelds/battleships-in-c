@@ -27,14 +27,13 @@ void hello_packet_deserialization(char *serialized_packet, struct HelloPacket *d
     deserialized_packet->name = malloc(deserialized_packet->name_length + 1); // +1 is \0
     read_pointer++;
     char *write_pointer = deserialized_packet->name;
-    printf("Deserialize: ");
     while (read_pointer - serialized_packet <= deserialized_packet->name_length)
     {
-        printf("%c", *read_pointer);
         *write_pointer++ = *read_pointer++;
     }
-    printf("\n");
     write_pointer = '\0'; // For possibility to use printf()
     return;
 }
+
+
 // TODO: Add other packet serialization/deserialization
