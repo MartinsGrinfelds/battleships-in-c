@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev
+
       - name: Set up build version
         id: build_version
         run: echo "BATTLESHIPS_VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV

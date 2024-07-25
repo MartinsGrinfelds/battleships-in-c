@@ -4,6 +4,10 @@
 #include "graphical/text_formatter.h" // print_failure()
 #include "graphical/ui_functions.h" // get_user_input()
 #include <string.h> // strlen()
+#include "external_libraries/raylib-5.0_linux_amd64/include/raylib.h"
+#include "external_libraries/raylib-5.0_linux_amd64/include/raymath.h"
+#include "external_libraries/raylib-5.0_linux_amd64/include/rlgl.h"
+#include <unistd.h> // sleep()
 
 #define HOST "127.0.0.1"
 #define PORT 12345
@@ -20,12 +24,21 @@ int client_packet_nr = 0; // Not used yet. To be implemented.
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
+    InitWindow(1000, 500, "Battleships");
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+            ClearBackground(GRAY);
+            DrawText("Welcome to Battleships!", 190, 200, 40, BLACK);
+        EndDrawing();
+    }
     // Call socket creation
     client_tcp_socket = create_socket();
     if(connect_socket(client_tcp_socket, PORT, HOST) != 0)
     {
         print_failure("Connection to server failed!\n");
         close_socket(client_tcp_socket);
+        CloseWindow();
         exit(1);
     }
 }
@@ -53,7 +66,7 @@ int register_client()
     {
         print_failure("Registration failed!\n");
         close_socket(client_tcp_socket);
-        exit(1);
+        return 1;
     }
     print_success("Registration Successful!\n");
     printf("Your Player ID: %d\n", ((struct AckPacket *)server_packet->content)->player_id);
@@ -66,6 +79,7 @@ int register_client()
 /// @brief Executes client shutdown actions (such as main socket closing).
 void shutdown_client()
 {
+    CloseWindow();
     close_socket(client_tcp_socket);
 }
 
