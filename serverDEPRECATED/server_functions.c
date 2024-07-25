@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <stdlib.h> // size_t
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <arpa/inet.h>
