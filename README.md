@@ -8,9 +8,32 @@ Multiplayer ship destruction game. Generalized game rules are within wiki page.
 ### Ensure you have:
 - `gcc` (for compiling)
 - `make` (for using Makefile)
-### If working on WSL ensure such libraries are installed:
-- `libncurses-dev` (TBD if necessary)
-- `build-essential` (TBD if necessary)
+
+### Ensure such libraries are installed (for compile arguments to work):
+There are instructions for raylib graphical interface: https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux.
+To make sure it is working you need to install some libraries used by raylib:
+
+<b>Ubuntu:</b>
+```sh
+sudo apt install libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev
+```
+<b>Fedora:</b>
+```sh
+sudo dnf install alsa-lib-devel mesa-libGL-devel libX11-devel libXrandr-devel libXi-devel libXcursor-devel libXinerama-devel libatomic
+```
+<b>Arch:</b>
+```sh
+sudo pacman -S alsa-lib mesa libx11 libxrandr libxi libxcursor libxinerama
+```
+
+### Install raylib itself:
+Either see how: https://github.com/raysan5/raylib/issues/613
+Or just use brew (install): https://brew.sh/ <b>AND FOLLOW INSTRUCTIONS TO ADD BREW BINS TO PATH</b>
+
+<b>After brew is installed:</b>
+```sh
+brew install raylib
+```
 
 ## To compile
 You can use predefined `Makefile` instructions or compile any other way

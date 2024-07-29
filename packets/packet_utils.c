@@ -2,7 +2,7 @@
 #include "packet_utils.h"
 #include <stdio.h>
 #include <unistd.h> // read
-#include <stdlib.h>
+#include <stdlib.h> // size_t
 #include <string.h>
 #include <sys/socket.h>
 #include "../Server/server_functions.h"
