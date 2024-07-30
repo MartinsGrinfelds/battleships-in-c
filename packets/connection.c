@@ -8,6 +8,7 @@
 #include "shared_packets.h" // packets used by battleships
 #include <arpa/inet.h>      // inet_pton()
 #include <fcntl.h>          // F_GETFL, O_NONBLOCK, F_SETFL
+#include <errno.h>          // errno, EWOULDBLOCK, EAGAIN
 
 int create_socket()
 {
@@ -95,7 +96,16 @@ int accept_connection(int socket)
     int client_socket = accept(socket, (struct sockaddr *)&client_address, &client_socket_len);
     if (client_socket < 0)
     {
-        perror("Error: ");
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            printf("No incomming connections now. Continuing...\n");
+            return -2;
+        }
+        else
+        {
+            perror("Error: ");
+            return -1;
+        }
     }
     return client_socket;
 }
@@ -104,12 +114,27 @@ struct GenericPacket *receive_generic_packet(int socket)
 {
     // Call free(address) for this one or enjoy memory leak 😍
     struct GenericPacket *received_packet = malloc(sizeof(struct GenericPacket));
-    size_t recv_status, to_receive;
+    ssize_t recv_status, to_receive;
     printf("Receiving generic packet:\n");
     // This and all further to_receive sizeof tells recv how buch bytes to receive.
     // uint32_t sequence_number;     // 4 bytes
     to_receive = sizeof(received_packet->sequence_number);
     recv_status = recv(socket, &received_packet->sequence_number, to_receive, 0);
+    if (recv_status <= 0)
+    {
+        printf("Errno is: %d\n", errno);
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            free(received_packet);
+            printf("No incomming data. Continuing...\n");
+            return NULL;
+        }
+        // else Leaving it here probably necessary.
+        // {
+        //     perror("Error: ");
+        //     return NULL;
+        // }
+    }
     if (recv_status != to_receive)
     {
         printf("Failure to get packet sequence number! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
@@ -155,7 +180,7 @@ struct GenericPacket *receive_generic_packet(int socket)
 
 int send_generic_packet(int socket, struct GenericPacket *packet)
 {
-    size_t send_status, to_send;
+    ssize_t send_status, to_send;
     // uint32_t sequence_number;     // 4 bytes
     to_send = sizeof(packet->sequence_number);
     send_status = send(socket, &packet->sequence_number, to_send, 0);
