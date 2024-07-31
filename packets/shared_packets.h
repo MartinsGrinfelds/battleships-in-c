@@ -2,6 +2,8 @@
 #include <stdint.h> // uint definitions
 #include <stdlib.h> // exit(), size_t, malloc
 
+// Max username length
+#define MAX_USERNAME 30
 
 struct GenericPacket
 {
@@ -10,7 +12,7 @@ struct GenericPacket
     uint8_t packet_type;          // 1 byte
     uint8_t checksum;             // 1 byte
     // Padding 6 bytes here <- Free space to use
-    char *content; // Content is saved somewhere on memory
+    char *content; // Pointer is 8? bytes Content is saved somewhere on memory
 };
 
 struct HelloPacket

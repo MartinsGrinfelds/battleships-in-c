@@ -92,13 +92,13 @@ int accept_connection(int socket)
     memset(&client_address, 0, sizeof(client_address)); // Clean possible garbage from this.
     socklen_t client_socket_len = sizeof(client_address);
     // This can be either blocking or non-blocking based of socket settings.
-    printf("Waiting for a new connection for socket: %d\n", socket);
+    // printf("Waiting for a new connection for socket: %d\n", socket);
     int client_socket = accept(socket, (struct sockaddr *)&client_address, &client_socket_len);
     if (client_socket < 0)
     {
         if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
-            printf("No incomming connections now. Continuing...\n");
+            // printf("No incomming connections now. Continuing...\n");
             return -2;
         }
         else
@@ -115,18 +115,18 @@ struct GenericPacket *receive_generic_packet(int socket)
     // Call free(address) for this one or enjoy memory leak 😍
     struct GenericPacket *received_packet = malloc(sizeof(struct GenericPacket));
     ssize_t recv_status, to_receive;
-    printf("Receiving generic packet:\n");
+    // printf("Receiving generic packet:\n");
     // This and all further to_receive sizeof tells recv how buch bytes to receive.
     // uint32_t sequence_number;     // 4 bytes
     to_receive = sizeof(received_packet->sequence_number);
     recv_status = recv(socket, &received_packet->sequence_number, to_receive, 0);
     if (recv_status <= 0)
     {
-        printf("Errno is: %d\n", errno);
+        // printf("Errno is: %d\n", errno);
         if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
             free(received_packet);
-            printf("No incomming data. Continuing...\n");
+            // printf("No incomming data. Continuing...\n");
             return NULL;
         }
         // else Leaving it here probably necessary.
@@ -141,6 +141,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // uint32_t packet_content_size; // 4 bytes
     to_receive = sizeof(received_packet->packet_content_size);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->packet_content_size, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -148,6 +149,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // uint8_t packet_type;          // 1 byte
     to_receive = sizeof(received_packet->packet_type);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->packet_type, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -155,6 +157,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // uint8_t checksum;             // 1 byte
     to_receive = sizeof(received_packet->checksum);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->checksum, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -170,6 +173,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // Call free(address) for this one or enjoy memory leak 😍
     received_packet->content = malloc(to_receive);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, received_packet->content, to_receive, 0);
     if (recv_status != to_receive)
     {

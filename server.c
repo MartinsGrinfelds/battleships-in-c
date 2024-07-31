@@ -21,7 +21,9 @@ int gameloop = 1, gameloop_iteration = 0, player_id = 1;
 struct ClientInfo
 {
     int socket_nr;
+    int id;
     int status;
+    char username[MAX_USERNAME];
 };
 struct ClientInfo clients[MAX_CLIENTS];
 
@@ -70,34 +72,37 @@ int add_client_socket_info(int socket)
 }
 
 /// @brief Try to register client username.
+/// @param username Where to save received username.
+/// @param user_id Where to save user ID.
 /// @return 1 if succesful registration. 0 waiting on client.
-int register_client_username(int socket)
+int register_client_username(int socket, char* username, int* user_id)
 {
 
     struct GenericPacket *client_packet = receive_generic_packet(socket);
     if (client_packet == NULL)
     {
-        printf("Waiting on client %d\n", socket);
+        // printf("Waiting on client %d\n", socket);
         return 0;
     }
     
-    if (client_packet->packet_type != 0)
-    {
-        // TODO: Send ACK with player_id=0.
-    }
+    // if (client_packet->packet_type != 0)
+    // {
+    //     // TODO: Send ACK with player_id=0.
+    // }
     // TODO: Send ACK with player_id and team_id. If game started then team_id=0.
     struct HelloPacket hello_packet;
     hello_packet_deserialization(client_packet->content, &hello_packet);
-    printf("Welcome client (%s) ID: %d\n", hello_packet.name, socket);
-    printf("Client name size: %d\n", hello_packet.name_length);
+    strcpy(username, hello_packet.name);
 
     struct GenericPacket generic_packet;
     generic_packet.packet_content_size = sizeof(struct AckPacket);
     generic_packet.packet_type = 1;
     struct AckPacket ack_packet;
-    ack_packet.player_id = player_id++;
+    *user_id = player_id++;
+    ack_packet.player_id = *user_id;
     ack_packet.team_id = 69;
     generic_packet.content = (char *)&ack_packet;
+    printf("Welcome client (%s) ID: %d Socket: %d\n", hello_packet.name, *user_id, socket);
     send_generic_packet(socket, &generic_packet);
 
     // THIS IS TEMPORARY!!! Just to close client connection.
@@ -114,7 +119,7 @@ void get_clients_usernames()
     {
         if (clients[i].status == 0 && clients[i].socket_nr >= 0)
         {
-            if(register_client_username(clients[i].socket_nr))
+            if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id))
             {
                 clients[i].status++;
             }
@@ -136,7 +141,7 @@ void register_clients()
         print_failure("Failure while accepting connection\n");
         break;
     case -2:
-        printf("No client connections waiting.\n");
+        // printf("No client connections waiting.\n");
         break;
     default:
         // Set client non-blocking to not halt server.
@@ -167,7 +172,7 @@ int serverloop()
         gameloop_iteration++;
         sleep(1);
         printf("Loop iteration: %d\n", gameloop_iteration);
-        if (gameloop_iteration > 100)
+        if (gameloop_iteration > 25)
         {
             gameloop = 0;
         }
@@ -188,7 +193,7 @@ void server_cleanup()
         if (clients[i].socket_nr >= 0)
         {
             close_socket(clients[i].socket_nr);
-            printf("Client socked with ID %d closed!\n", clients[i].socket_nr);
+            printf("Client socked with ID %d and name %s closed!\n", clients[i].socket_nr, clients[i].username);
         }
         i++;
     }
