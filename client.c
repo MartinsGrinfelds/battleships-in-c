@@ -5,8 +5,8 @@
 #include "graphical/ui_functions.h" // get_user_input()
 #include <string.h> // strlen()
 #include "external_libraries/raylib-5.0_linux_amd64/include/raylib.h"
-#include "external_libraries/raylib-5.0_linux_amd64/include/raymath.h"
-#include "external_libraries/raylib-5.0_linux_amd64/include/rlgl.h"
+// #include "external_libraries/raylib-5.0_linux_amd64/include/raymath.h"
+// #include "external_libraries/raylib-5.0_linux_amd64/include/rlgl.h"
 #include <unistd.h> // sleep()
 
 #define HOST "127.0.0.1"
@@ -20,18 +20,23 @@ char* APP_VERSION = "UNDEFINED!";
 
 int client_tcp_socket = -1;
 int client_packet_nr = 0; // Not used yet. To be implemented.
+uint8_t map_size_x = 20, map_size_y = 20;
 
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
-    InitWindow(1000, 500, "Battleships");
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
-            ClearBackground(GRAY);
-            DrawText("Welcome to Battleships!", 190, 200, 40, BLACK);
-        EndDrawing();
-    }
+    InitWindow(1000, 1000, "Battleships");
+    
+    draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+
+    // ToggleFullscreen();
+    // while (!WindowShouldClose())
+    // {
+    //     BeginDrawing();
+    //     ClearBackground(GRAY);
+    //     DrawText("Welcome to Battleships!", 190, 200, 40, BLACK);
+    //     EndDrawing();
+    // }
     // Call socket creation
     client_tcp_socket = create_socket();
     if(connect_socket(client_tcp_socket, PORT, HOST) != 0)
@@ -45,8 +50,7 @@ void startup_client()
 
 int register_client()
 {
-    // Replace code with one using graphical library.
-    char *user_name = get_user_input(5, 30);
+    char *user_name = get_username_input(30); // Check if NULL
     struct HelloPacket client_hello;
     client_hello.name = user_name;
     client_hello.name_length = (uint8_t)strlen(user_name);
@@ -66,21 +70,27 @@ int register_client()
     {
         print_failure("Registration failed!\n");
         close_socket(client_tcp_socket);
-        return 1;
+        return 0;
     }
     print_success("Registration Successful!\n");
     printf("Your Player ID: %d\n", ((struct AckPacket *)server_packet->content)->player_id);
     printf("Your Team ID: %d\n", ((struct AckPacket *)server_packet->content)->team_id);
     free(server_packet->content);
     free(server_packet);
-    return 0;
+    return 1;
+}
+
+void clientloop()
+{
+    draw_map_area(map_size_x, map_size_y, NULL);
+    sleep(10);
 }
 
 /// @brief Executes client shutdown actions (such as main socket closing).
 void shutdown_client()
 {
-    CloseWindow();
     close_socket(client_tcp_socket);
+    CloseWindow();
 }
 
 int main()
@@ -89,9 +99,10 @@ int main()
     printf("Version: %s\n", APP_VERSION);
 
     startup_client();
-    register_client();
-    // After startup initiate HELLO packket.
-    // Game loop can start here.
+    if (register_client())
+    {
+        clientloop();
+    }
 
     shutdown_client();
     return 0;
