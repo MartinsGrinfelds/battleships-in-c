@@ -27,7 +27,18 @@ void startup_client()
 {
     InitWindow(1000, 1000, "Battleships");
     
+    while (!WindowShouldClose())
+    {
+        // if (IsWindowResized())
+        // {
+        draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+        // show_chat_messages();
+        // }
+    }
+    
     draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+    show_chat_messages();
+    sleep(5);
 
     // ToggleFullscreen();
     // while (!WindowShouldClose())
@@ -83,6 +94,8 @@ int register_client()
 void clientloop()
 {
     draw_map_area(map_size_x, map_size_y, NULL);
+    draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+    
     sleep(10);
 }
 

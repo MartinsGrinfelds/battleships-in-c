@@ -8,7 +8,7 @@
 #define SHIP_COLOR (Color) {229, 221, 205, 255}
 #define FOW_SEA_COLOR (Color) {31, 56, 104, 255}
 #define SEA_COLOR (Color) {23, 98, 159, 255}
-#define ENEMY_COLOR (Color) {235, 92, 109}
+#define ENEMY_COLOR (Color) {235, 92, 109, 255}
 
 /// @brief Gets user input. Pointer must be freed after.
 /// @param min Minimum user input length.
@@ -26,3 +26,6 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map);
 /// @param max Max allowed username length.
 /// @return Pointer to username string (created by calloc).
 char* get_username_input(uint8_t max);
+
+/// @brief Draws chat area on the screen.
+void show_chat_messages();

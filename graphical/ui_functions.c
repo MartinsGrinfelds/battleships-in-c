@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h> //stdin
 #include "../external_libraries/raylib-5.0_linux_amd64/include/raylib.h" // Raylib functions
+// #include "../external_libraries/raylib-5.0_linux_amd64/include/raymath.h"
+// #include "../external_libraries/raylib-5.0_linux_amd64/include/rlgl.h"
 
 char *get_user_input(uint16_t min, uint16_t max)
 {
@@ -40,16 +42,16 @@ char *get_user_input(uint16_t min, uint16_t max)
 
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
-    int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    printf("Height: %d Width: %d\n", screen_y, screen_x);
+    float screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
+    // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
     screen_x = screen_x * 3 / 4; // Potencial hardcode
     screen_y = screen_y * 3 / 4; // Potencial hardcode
-    int square_x = screen_x/width, square_y = screen_y/height;
+    float square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
     BeginDrawing();
-    printf("Height: %d Width: %d\n", screen_y, screen_x);
-    printf("SHeight: %d SWidth: %d\n", square_y, square_x);
+    // printf("Height: %f Width: %f\n", screen_y, screen_x);
+    // printf("SHeight: %f SWidth: %f\n", square_y, square_x);
     while (y < height)
     {
         while (x < width)
@@ -177,4 +179,42 @@ char* get_username_input(uint8_t max)
     }
     free(username);
     return NULL;
+}
+
+// Draw text using font inside rectangle limits
+// static void DrawTextBoxed(Font font, const char *text, Rectangle rec, float fontSize, float spacing, bool wordWrap, Color tint)
+// {
+//     DrawTextBoxedSelectable(font, text, rec, fontSize, spacing, wordWrap, tint, 0, 0, WHITE, WHITE);
+// }
+
+void show_chat_messages()
+{
+    int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
+    Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
+    // Rectangle resizer = { container.x + container.width - 17, container.y + container.height - 17, 14, 14 };
+    Color borderColor = ENEMY_COLOR;
+    Font font = GetFontDefault();
+    char text[] = "Text check... and also... Kā ir latviski? Šausmans";
+    // bool wordWrap = true;
+
+    BeginDrawing();
+
+    // ClearBackground(RAYWHITE);
+
+    DrawRectangleLinesEx(container, 3, borderColor);    // Draw container border
+
+    // Draw text in container (add some padding)
+    // DrawTextBoxed(font, text, (Rectangle){ container.x + 4, container.y + 4, container.width - 4, container.height - 4 }, 20.0f, 2.0f, wordWrap, GRAY);
+
+    // DrawRectangleRec(resizer, borderColor);             // Draw the resize box
+
+    // Draw bottom info
+    // DrawRectangle(0, screen_y - 54, screen_x, 54, GRAY);
+    // DrawRectangleRec((Rectangle){ 382.0f, screen_y - 34.0f, 12.0f, 12.0f }, MAROON);
+
+    // DrawText("Word Wrap: ", 313, screen_y-115, 20, BLACK);
+    // if (wordWrap) DrawText("ON", 447, screen_y - 115, 20, RED);
+    // else DrawText("OFF", 447, screen_y - 115, 20, BLACK);
+
+    EndDrawing();
 }
