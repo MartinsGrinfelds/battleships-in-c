@@ -21,22 +21,28 @@ char* APP_VERSION = "UNDEFINED!";
 int client_tcp_socket = -1;
 int client_packet_nr = 0; // Not used yet. To be implemented.
 uint8_t map_size_x = 20, map_size_y = 20;
+uint8_t* map;
 
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
     InitWindow(1000, 1000, "Battleships");
-    
+    map = calloc(map_size_x*map_size_y, sizeof(uint8_t));
+    map[22] = 1; // Only test REMOVE
+    map[68] = 2; // Only test REMOVE
+    map[69] = 2; // Only test REMOVE
+    map[122] = 1; // Only test REMOVE
+
     while (!WindowShouldClose())
     {
         // if (IsWindowResized())
         // {
-        draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+        draw_map_area(map_size_x, map_size_y, map); // REMOVE THIS
         // show_chat_messages();
         // }
     }
     
-    draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
+    draw_map_area(map_size_x, map_size_y, map); // REMOVE THIS
     show_chat_messages();
     sleep(5);
 
@@ -102,6 +108,7 @@ void clientloop()
 /// @brief Executes client shutdown actions (such as main socket closing).
 void shutdown_client()
 {
+    free(map);
     close_socket(client_tcp_socket);
     CloseWindow();
 }
