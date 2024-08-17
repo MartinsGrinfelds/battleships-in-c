@@ -2,9 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h> //stdin
+#include <time.h> // Just for fun
 #include "../external_libraries/raylib-5.0_linux_amd64/include/raylib.h" // Raylib functions
 // #include "../external_libraries/raylib-5.0_linux_amd64/include/raymath.h"
 // #include "../external_libraries/raylib-5.0_linux_amd64/include/rlgl.h"
+
+#define MAX_TEXT 5000
 
 char *get_user_input(uint16_t min, uint16_t max)
 {
@@ -49,14 +52,20 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
     screen_y = screen_y * 3 / 4; // Potencial hardcode
     float square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
-    BeginDrawing();
     Color color = BLANK;
+    // srand(time(NULL)); Fog of war potencial radar glitch
     // printf("Height: %f Width: %f\n", screen_y, screen_x);
     // printf("SHeight: %f SWidth: %f\n", square_y, square_x);
     while (y < height)
     {
+        // uint8_t decision = rand() % 5; Fog of war potencial radar glitch
         while (x < width)
         {
+            // uint8_t temp_num = map[y*(height)+x]; Fog of war potencial radar glitch (SHOULD BE SERVER SIDE)
+            // if (decision == 1 || rand() % 5 == 1)
+            // {
+            //     map[y*(height)+x] = 666;
+            // }
             switch (map[y*(height)+x])
             {
             case 0:
@@ -67,18 +76,21 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
                 color = SHIP_COLOR;
                 break;
 
-            default:
+            case 2:
                 color = ENEMY_COLOR;
                 break;
+
+            default:
+                color = GREEN;
             }
             DrawRectangle(x*square_x, y*square_y, square_x, square_y, color);
             DrawRectangleLines(x*square_x, y*square_y, square_x, square_y, SEA_COLOR);
+            // map[y*(height)+x] = temp_num; Fog of war potencial radar glitch
             x++;
         }
         x=0;
         y++;
     }
-    EndDrawing();
     
 }
 
@@ -196,12 +208,19 @@ char* get_username_input(uint8_t max)
     return NULL;
 }
 
-// Draw text using font inside rectangle limits
-// static void DrawTextBoxed(Font font, const char *text, Rectangle rec, float fontSize, float spacing, bool wordWrap, Color tint)
-// {
-//     DrawTextBoxedSelectable(font, text, rec, fontSize, spacing, wordWrap, tint, 0, 0, WHITE, WHITE);
-// }
 
+/// @brief THIS CODE IS MOST FROM RAYLIB EXAMPLES.
+/// @param font 
+/// @param text 
+/// @param rec 
+/// @param fontSize 
+/// @param spacing 
+/// @param wordWrap 
+/// @param tint 
+/// @param selectStart 
+/// @param selectLength 
+/// @param selectTint 
+/// @param selectBackTint 
 static void DrawTextBoxedSelectable(Font font, const char *text, Rectangle rec, float fontSize, float spacing, bool wordWrap, Color tint, int selectStart, int selectLength, Color selectTint, Color selectBackTint)
 {
     int length = TextLength(text);  // Total length in bytes of the text, scanned by codepoints in loop
@@ -331,22 +350,72 @@ static void DrawTextBoxedSelectable(Font font, const char *text, Rectangle rec, 
     }
 }
 
-void show_chat_messages()
+void show_chat_messages(struct Message* messages)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
     Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
     // Rectangle resizer = { container.x + container.width - 17, container.y + container.height - 17, 14, 14 };
     Color borderColor = ENEMY_COLOR;
     Font font = GetFontDefault();
-    char text[] = "Text check... and also... Kā ir latviski? Šausmans";
+    size_t symbols_added = 0, symbols_to_add = 0; // We assume total chatbox character count will not be more than 5000
+    char text[MAX_TEXT] = {0};
     bool wordWrap = true;
+    struct Message* current_message = messages;
+    while (current_message != NULL)
+    {
+        if (symbols_added > 0)
+        {
+            // There was messages before. Need to add new line.
+            if (symbols_added == MAX_TEXT)
+            {
+                // Chat buffer full.
+                print_failure("CHAT DISPLAY BUFFER IS FULL! REPORT THIS AS BUG! NOTE: YOU WON'T SEE NEW MESSAGES FOR A WHILE!\n");
+                break;
+            }
+            strcat(text, "\n");
+            symbols_added++;
+            
+        }
+        
+        if (current_message->sender_name == NULL || current_message->receiver_name == NULL || current_message->message == NULL)
+        {
+            print_failure("CHAT DISPLAY GATHERING FAILURE! REPORT THIS AS BUG!\n");
+            if (current_message->next_message != NULL)
+            {
+                current_message = current_message->next_message;
+                continue;
+            }
+            else
+            {
+                break;
+            }
+        }
+        // In form: (SENDER)->(RECEIVER):MESSAGE
+        symbols_to_add = strlen(current_message->receiver_name) + strlen(current_message->sender_name) + strlen(current_message->message) + 8; // 7 symbols + /0
+        if (symbols_to_add + symbols_added > MAX_TEXT)
+        {
+            print_failure("CHAT DISPLAY BUFFER IS FULL! REPORT THIS AS BUG! NOTE: YOU WON'T SEE NEW MESSAGES FOR A WHILE!\n");
+            break;
+        }
+        strcat(text, "(");
+        strcat(text, current_message->sender_name);
+        strcat(text, ")->(");
+        strcat(text, current_message->receiver_name);
+        strcat(text, "):");
+        strcat(text, current_message->message);
+        symbols_added += symbols_to_add;
 
-    BeginDrawing();
+        current_message = current_message->next_message;
+    }
+    
+
+    // BeginDrawing();
 
     // ClearBackground(RAYWHITE);
 
     DrawRectangleLinesEx(container, 3, borderColor);    // Draw container border
 
+    // printf("Drawing chat\n");
     // Draw text in container (add some padding)
     DrawTextBoxedSelectable(font, text, (Rectangle){ container.x + 4, container.y + 4, container.width - 4, container.height - 4 }, 20.0f, 2.0f, wordWrap, GRAY, 0, 0, WHITE, WHITE);
 
@@ -360,5 +429,5 @@ void show_chat_messages()
     // if (wordWrap) DrawText("ON", 447, screen_y - 115, 20, RED);
     // else DrawText("OFF", 447, screen_y - 115, 20, BLACK);
 
-    EndDrawing();
+    // EndDrawing();
 }

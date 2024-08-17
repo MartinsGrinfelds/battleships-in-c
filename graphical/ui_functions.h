@@ -5,10 +5,22 @@
 // Ideas from book "Palette Perfect for Graphic Designers & Illustrators... " by Sara Caldas.
 // Page 192. -> Sea FOW (31, 56, 104), Sea close (23, 98, 159), Ship (229, 221, 205), Enemy (235, 92, 109)
 // Page 259. -> (14, 14, 14), FOW close squares (45, 46, 47), FOW? (114, 106, 106), Ship (189, 171, 174)
-#define SHIP_COLOR (Color) {229, 221, 205, 255}
-#define FOW_SEA_COLOR (Color) {31, 56, 104, 255}
-#define SEA_COLOR (Color) {23, 98, 159, 255}
-#define ENEMY_COLOR (Color) {235, 92, 109, 255}
+#define SHIP_COLOR \
+    (Color) { 229, 221, 205, 255 }
+#define FOW_SEA_COLOR \
+    (Color) { 31, 56, 104, 255 }
+#define SEA_COLOR \
+    (Color) { 23, 98, 159, 255 }
+#define ENEMY_COLOR \
+    (Color) { 235, 92, 109, 255 }
+
+struct Message
+{
+    char *sender_name;
+    char *receiver_name;
+    char *message;
+    void *next_message;
+};
 
 /// @brief Gets user input. Pointer must be freed after.
 /// @param min Minimum user input length.
@@ -25,7 +37,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map);
 /// @brief Get username input from UI.
 /// @param max Max allowed username length.
 /// @return Pointer to username string (created by calloc).
-char* get_username_input(uint8_t max);
+char *get_username_input(uint8_t max);
 
 /// @brief Draws chat area on the screen.
-void show_chat_messages();
+/// @param messages Linked list of messages that can imidiately be displayed.
+/// Should go through messages that are linked list:
+/// sender_name (ends with /0), receiver_name (ends with /0), message (ends with /0), next_message (pointer)
+void show_chat_messages(struct Message* messages);

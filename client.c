@@ -22,29 +22,44 @@ int client_tcp_socket = -1;
 int client_packet_nr = 0; // Not used yet. To be implemented.
 uint8_t map_size_x = 20, map_size_y = 20;
 uint8_t* map;
+struct Message messages;
+bool allow_offline = true, connection_active = false;
 
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
     InitWindow(1000, 1000, "Battleships");
     map = calloc(map_size_x*map_size_y, sizeof(uint8_t));
+    messages.message = malloc(sizeof("You look awesome!\0"));
+    messages.message = "You look awesome!\0";
+    messages.sender_name = malloc(sizeof("Zenitsu\0"));
+    messages.sender_name = "Zenitsu\0";
+    messages.receiver_name = malloc(sizeof("Nezuko\0"));
+    messages.receiver_name = "Nezuko\0";
+
+    messages.next_message = malloc(sizeof(struct Message));
+    struct Message* current_message = messages.next_message;
+    current_message->message = malloc(sizeof("Aww. Thanks! Tho you don't see me lol\0"));
+    current_message->message = "Aww. Thanks! Tho you don't see me lol\0";
+    current_message->sender_name = malloc(sizeof("Nezuko\0"));
+    current_message->sender_name = "Nezuko\0";
+    current_message->receiver_name = malloc(sizeof("Zenitsu\0"));
+    current_message->receiver_name = "Zenitsu\0";
+    current_message->next_message = NULL;
     map[22] = 1; // Only test REMOVE
     map[68] = 2; // Only test REMOVE
     map[69] = 2; // Only test REMOVE
-    map[122] = 1; // Only test REMOVE
-
-    while (!WindowShouldClose())
-    {
-        // if (IsWindowResized())
-        // {
-        draw_map_area(map_size_x, map_size_y, map); // REMOVE THIS
-        // show_chat_messages();
-        // }
-    }
+    map[225] = 1; // Only test REMOVE
     
-    draw_map_area(map_size_x, map_size_y, map); // REMOVE THIS
-    show_chat_messages();
-    sleep(5);
+
+    // while (!WindowShouldClose())
+    // {
+    //     // if (IsWindowResized())
+    //     // {
+    //     draw_map_area(map_size_x, map_size_y, map); // REMOVE THIS
+    //     // show_chat_messages();
+    //     // }
+    // }
 
     // ToggleFullscreen();
     // while (!WindowShouldClose())
@@ -58,15 +73,30 @@ void startup_client()
     client_tcp_socket = create_socket();
     if(connect_socket(client_tcp_socket, PORT, HOST) != 0)
     {
+        if (allow_offline)
+        {
+            return;
+        }
         print_failure("Connection to server failed!\n");
         close_socket(client_tcp_socket);
         CloseWindow();
         exit(1);
     }
+    connection_active = true;
 }
 
+/// @brief Register client
+/// @return Returns 1 if succesfull. 0 if no succesful (crazy right?)
 int register_client()
 {
+    if (!connection_active && allow_offline)
+    {
+        return 1;
+    }
+    else if (!connection_active)
+    {
+        return 0;
+    }
     char *user_name = get_username_input(30); // Check if NULL
     struct HelloPacket client_hello;
     client_hello.name = user_name;
@@ -99,10 +129,14 @@ int register_client()
 
 void clientloop()
 {
-    draw_map_area(map_size_x, map_size_y, NULL);
-    draw_map_area(map_size_x, map_size_y, NULL); // REMOVE THIS
-    
-    sleep(10);
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+        draw_map_area(map_size_x, map_size_y, map);
+        show_chat_messages(&messages);
+        EndDrawing();
+        sleep(1);
+    }
 }
 
 /// @brief Executes client shutdown actions (such as main socket closing).
