@@ -25,6 +25,11 @@ uint8_t* map;
 struct Message messages;
 bool allow_offline = true, connection_active = false;
 
+// Settings
+uint8_t MIN_NAME_LENGTH = 1;
+uint8_t MAX_NAME_LENGTH = 20;
+#define ASK_FOR_USERNAME "Please Enter Username:"
+
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
 {
@@ -97,7 +102,7 @@ int register_client()
     {
         return 0;
     }
-    char *user_name = get_username_input(30); // Check if NULL
+    char *user_name = get_username_input(MIN_NAME_LENGTH, MAX_NAME_LENGTH, ASK_FOR_USERNAME); // Check if NULL
     struct HelloPacket client_hello;
     client_hello.name = user_name;
     client_hello.name_length = (uint8_t)strlen(user_name);
