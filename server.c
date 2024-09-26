@@ -171,10 +171,10 @@ int serverloop()
     {
         gameloop_iteration++;
         sleep(1);
-        printf("Loop iteration: %d\n", gameloop_iteration);
-        if (gameloop_iteration > 25)
+        if(gameloop_iteration%100 == 0)
         {
-            gameloop = 0;
+            // Info about 100 iterations passed.
+            printf("Loop iteration: %d\n", gameloop_iteration);
         }
         register_clients();
 
