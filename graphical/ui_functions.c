@@ -99,7 +99,7 @@ char* get_username_input(uint8_t min, uint8_t max, char *message)
     int width = GetScreenWidth();
     // Call free(address) for this one or enjoy memory leak 😍
     char* username = calloc((max + 1), sizeof(char));
-    int letter_count = 0, key = 0, font_size = 40;
+    int letter_count = 0, key = 0, font_size = 40, min_text_warning = 0;
     Rectangle text_box = { 240, 180, 500, 50 };
     bool activated_text_field = false;
     SetTargetFPS(50);
@@ -122,14 +122,20 @@ char* get_username_input(uint8_t min, uint8_t max, char *message)
 
             DrawText(TextFormat("Your input length: %i/%i", letter_count, max), 315, 250, 20, BLACK);
 
+            if(min_text_warning)
+            {
+                DrawText(TextFormat("Input must be at least: %i characters long!", min), 315, 270, 20, ENEMY_COLOR);
+            }
+
         EndDrawing();
+
         // Get char pressed (unicode character) on the queue
-        
-            key = GetCharPressed();
+        key = GetCharPressed();
 
         // NOTE: Only allow keys in range [32..125]
         if ((key >= 32) && (key <= 125) && (letter_count < max))
         {
+            min_text_warning = 0;
             username[letter_count] = (char)key;
             username[letter_count+1] = '\0'; // Add null terminator at the end of the string.
             letter_count++;
@@ -141,9 +147,17 @@ char* get_username_input(uint8_t min, uint8_t max, char *message)
             if (letter_count < 0) letter_count = 0;
             username[letter_count] = '\0';
         }
-        if (IsKeyPressed(KEY_ENTER) && letter_count >= min)
+        if (IsKeyPressed(KEY_ENTER))
         {
-            return username;
+            if (letter_count < min)
+            {
+                // TODO: Add audio alert?
+                min_text_warning = 1;
+            }
+            else
+            {
+                return username;
+            }
         }
         key = 0;
     }
