@@ -94,115 +94,72 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
     
 }
 
-char* get_username_input(uint8_t max)
+char* get_username_input(uint8_t min, uint8_t max, char *message)
 {
-    int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
+    int width = GetScreenWidth();
     // Call free(address) for this one or enjoy memory leak 😍
     char* username = calloc((max + 1), sizeof(char));
-    int letter_count = 0;
-    Rectangle text_box = { screen_x/2.0f - 100, 180, 225, 50 };
+    int letter_count = 0, key = 0, font_size = 40, min_text_warning = 0;
+    Rectangle text_box = { 240, 180, 500, 50 };
     bool activated_text_field = false;
-    int frames_counter = 0;
+    SetTargetFPS(50);
     
 
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        if (IsMouseButtonPressed(0))
-        {
-            // Activate username box if clicked on. Deactivate if clicked away.
-            if (CheckCollisionPointRec(GetMousePosition(), text_box) && !activated_text_field)
-            {
-                activated_text_field = !activated_text_field;
-            }
-            else if (!CheckCollisionPointRec(GetMousePosition(), text_box) && activated_text_field)
-            {
-               activated_text_field = false;
-            }
-            
-        }
-
-        if (activated_text_field)
-        {
-            // Set the window's cursor to the I-Beam
-            // SetMouseCursor(MOUSE_CURSOR_IBEAM);
-
-            // Get char pressed (unicode character) on the queue
-            int key = GetCharPressed();
-
-            // Check if more characters have been pressed on the same frame
-            while (key > 0)
-            {
-                // NOTE: Only allow keys in range [32..125]
-                if ((key >= 32) && (key <= 125) && (letter_count < max))
-                {
-                    username[letter_count] = (char)key;
-                    username[letter_count+1] = '\0'; // Add null terminator at the end of the string.
-                    letter_count++;
-                }
-                key = GetCharPressed();  // Check next character in the queue
-            }
-
-            if (IsKeyPressed(KEY_BACKSPACE))
-            {
-                letter_count--;
-                if (letter_count < 0) letter_count = 0;
-                username[letter_count] = '\0';
-            }
-            if (IsKeyPressed(KEY_ENTER))
-            {
-                return username;
-            }
-        }
-        else
-        {
-            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-        }
-
-        if (activated_text_field)
-        {
-            frames_counter++;
-        }
-        else
-        {
-            frames_counter = 0;
-        }
-
         BeginDrawing();
 
             ClearBackground(RAYWHITE);
 
-            DrawText("Enter username!", 240, 140, 20, GRAY);
+            DrawText(message, 240, 140, 20, ENEMY_COLOR);
+            int input_size = MeasureText(username, font_size);
+            text_box.width = input_size + 10;
 
             DrawRectangleRec(text_box, LIGHTGRAY);
-            if (activated_text_field)
+            DrawRectangleLines((int)text_box.x, (int)text_box.y, (int)text_box.width, (int)text_box.height, ENEMY_COLOR);
+
+            DrawText(username, (int)text_box.x + 5, (int)text_box.y + 8, font_size, SEA_COLOR);
+
+            DrawText(TextFormat("Your input length: %i/%i", letter_count, max), 315, 250, 20, BLACK);
+
+            if(min_text_warning)
             {
-                DrawRectangleLines((int)text_box.x, (int)text_box.y, (int)text_box.width, (int)text_box.height, RED);
-            }
-            else 
-            {
-                DrawRectangleLines((int)text_box.x, (int)text_box.y, (int)text_box.width, (int)text_box.height, DARKGRAY);
+                DrawText(TextFormat("Input must be at least: %i characters long!", min), 315, 270, 20, ENEMY_COLOR);
             }
 
-            DrawText(username, (int)text_box.x + 5, (int)text_box.y + 8, 40, MAROON);
-
-            DrawText(TextFormat("INPUT CHARS: %i/%i", letter_count, max), 315, 250, 20, DARKGRAY);
-
-            // if (activated_text_field)
-            // {
-            //     if (letter_count < max)
-            //     {
-            //         // Draw blinking underscore char
-            //         if (((frames_counter/20)%2) == 0) 
-            //         {
-            //             DrawText("_", (int)text_box.x + 8 + MeasureText(username, 40), (int)text_box.y + 12, 40, MAROON);
-            //         }
-            //     }
-            //     else
-            //     {
-            //         DrawText("Press BACKSPACE to delete chars...", 230, 300, 20, GRAY);
-            //     }
-            // }
         EndDrawing();
+
+        // Get char pressed (unicode character) on the queue
+        key = GetCharPressed();
+
+        // NOTE: Only allow keys in range [32..125]
+        if ((key >= 32) && (key <= 125) && (letter_count < max))
+        {
+            min_text_warning = 0;
+            username[letter_count] = (char)key;
+            username[letter_count+1] = '\0'; // Add null terminator at the end of the string.
+            letter_count++;
+        }
+
+        if (IsKeyPressed(KEY_BACKSPACE))
+        {
+            letter_count--;
+            if (letter_count < 0) letter_count = 0;
+            username[letter_count] = '\0';
+        }
+        if (IsKeyPressed(KEY_ENTER))
+        {
+            if (letter_count < min)
+            {
+                // TODO: Add audio alert?
+                min_text_warning = 1;
+            }
+            else
+            {
+                return username;
+            }
+        }
+        key = 0;
     }
     free(username);
     return NULL;

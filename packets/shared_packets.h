@@ -5,6 +5,17 @@
 // Max username length
 #define MAX_USERNAME 30
 
+
+/// @brief DATA-0020
+struct Player
+{
+    uint8_t player_id;
+    uint8_t team_id;
+    uint8_t player_status;
+    uint8_t player_name_length;
+    char *player_name;
+};
+
 struct GenericPacket
 {
     uint32_t sequence_number;     // 4 bytes

@@ -34,10 +34,12 @@ char *get_user_input(uint16_t min, uint16_t max);
 /// @param map Map data as a list with vertical scan mode.
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map);
 
-/// @brief Get username input from UI.
+/// @brief Get user input from UI.
+/// @param min Min allowed username length.
 /// @param max Max allowed username length.
+/// @param message Message to show user on what to enter.
 /// @return Pointer to username string (created by calloc).
-char *get_username_input(uint8_t max);
+char *get_username_input(uint8_t min, uint8_t max, char *message);
 
 /// @brief Draws chat area on the screen.
 /// @param messages Linked list of messages that can imidiately be displayed.
