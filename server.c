@@ -18,19 +18,17 @@ char *APP_VERSION = "UNDEFINED!";
 
 int server_tcp_socket = -1;
 int gameloop = 1, gameloop_iteration = 0, player_id = 1;
-struct ClientInfo
-{
-    int socket_nr;
-    int id;
-    int status;
-    char username[MAX_USERNAME];
-};
-struct ClientInfo clients[MAX_CLIENTS];
+
+// Settings
+#define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
+#define INVALID_USERNAME_SPACE_AT_END "Username Cannot End With Space!"
+
+struct Player clients[MAX_CLIENTS];
 
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
-    memset(&clients, -1, sizeof(struct ClientInfo) * MAX_CLIENTS);
+    memset(&clients, -1, sizeof(struct Player) * MAX_CLIENTS);
     // Call socket creation
     server_tcp_socket = create_socket();
     if (bind_socket_to_address(server_tcp_socket, PORT) < 0)
@@ -63,6 +61,7 @@ int add_client_socket_info(int socket)
         {
             clients[i].socket_nr = socket;
             clients[i].status = 0;
+            clients[i].team_id = 0;
             return 0;
         }
         i++;
@@ -71,11 +70,40 @@ int add_client_socket_info(int socket)
     return 2;
 }
 
+/// @brief Checks if client with such username is already registered.
+/// @param username Username to check.
+/// @return 0 if no player with such username found. Anything above 0 is user ID which has same username.
+int username_exists(char *username)
+{
+    size_t i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].socket_nr != 0)
+        {
+            if (strcmp(username, clients[i].username) == 0)
+            {
+                return clients[i].id;
+            }
+        }
+        i++;
+    }
+    return 0;
+}
+
+char *username_invalid(char* username)
+{
+    if (username[strlen(username) - 1] == ' ')
+    {
+        return INVALID_USERNAME_SPACE_AT_END;
+    }
+    return NULL;
+}
+
 /// @brief Try to register client username.
 /// @param username Where to save received username.
 /// @param user_id Where to save user ID.
 /// @return 1 if succesful registration. 0 waiting on client.
-int register_client_username(int socket, char* username, int* user_id)
+int register_client_username(int socket, char* username, uint8_t* user_id, uint8_t* team_id)
 {
 
     struct GenericPacket *client_packet = receive_generic_packet(socket);
@@ -90,25 +118,47 @@ int register_client_username(int socket, char* username, int* user_id)
     //     // TODO: Send ACK with player_id=0.
     // }
     // TODO: Send ACK with player_id and team_id. If game started then team_id=0.
+    int registration_status = 0;
     struct HelloPacket hello_packet;
     hello_packet_deserialization(client_packet->content, &hello_packet);
-    strcpy(username, hello_packet.name);
-
-    struct GenericPacket generic_packet;
-    generic_packet.packet_content_size = sizeof(struct AckPacket);
-    generic_packet.packet_type = 1;
     struct AckPacket ack_packet;
-    *user_id = player_id++;
-    ack_packet.player_id = *user_id;
-    ack_packet.team_id = 69;
-    generic_packet.content = (char *)&ack_packet;
-    printf("Welcome client (%s) ID: %d Socket: %d\n", hello_packet.name, *user_id, socket);
+    ack_packet.player_id = 0;
+    ack_packet.team_id = 0;
+    ack_packet.message_length = 0;
+    // Check if username isn't already registered. Or isn't invalid.
+    char *is_invalid = username_invalid(hello_packet.name);
+    if (is_invalid)
+    {
+        // Username invalid.
+        ack_packet.message_length = strlen(is_invalid);
+        ack_packet.message = is_invalid; // We can do this because message is already defined in memory.
+    }
+    else if (username_exists(hello_packet.name))
+    {
+        // Username duplicates.
+        ack_packet.message_length = strlen(DUPLICATE_USERNAMES);
+        ack_packet.message = DUPLICATE_USERNAMES; // We can do this because message is already defined in memory.
+    }
+    else
+    {
+        // Succesful registration.
+        // TODO: Check game status OBSERVER?
+        strcpy(username, hello_packet.name);
+        *user_id = player_id++;
+        ack_packet.player_id = *user_id;
+        ack_packet.team_id = *team_id;
+        printf("Welcome client (%s) ID: %d Socket: %d\n", hello_packet.name, *user_id, socket);
+        registration_status = 1;
+    }
+    struct GenericPacket generic_packet;
+    generic_packet.packet_type = 1;
+    generic_packet.content = ack_packet_serialization(&ack_packet, &generic_packet.packet_content_size);
     send_generic_packet(socket, &generic_packet);
 
-    // THIS IS TEMPORARY!!! Just to close client connection.
+    free(generic_packet.content);
     free(client_packet->content);
     free(client_packet);
-    return 1;
+    return registration_status;
 }
 
 /// @brief Iterates through clients and tries to register them.
@@ -119,7 +169,7 @@ void get_clients_usernames()
     {
         if (clients[i].status == 0 && clients[i].socket_nr >= 0)
         {
-            if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id))
+            if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
             {
                 clients[i].status++;
             }

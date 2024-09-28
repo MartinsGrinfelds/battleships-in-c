@@ -26,9 +26,7 @@ struct Message messages;
 bool allow_offline = true, connection_active = false;
 
 // Settings
-uint8_t MIN_NAME_LENGTH = 1;
-uint8_t MAX_NAME_LENGTH = 20;
-#define ASK_FOR_USERNAME "Please Enter Username:"
+#define ASK_FOR_USERNAME "Please Enter Username:\0"
 
 /// @brief Does client startup actions such as socket creation, binding, connection.
 void startup_client()
@@ -102,33 +100,44 @@ int register_client()
     {
         return 0;
     }
-    char *user_name = get_username_input(MIN_NAME_LENGTH, MAX_NAME_LENGTH, ASK_FOR_USERNAME); // Check if NULL
-    struct HelloPacket client_hello;
-    client_hello.name = user_name;
-    client_hello.name_length = (uint8_t)strlen(user_name);
-    size_t serialized_packet_size;
-    char *serialized_packet = hello_packet_serialization(&client_hello, &serialized_packet_size);
-    struct GenericPacket generic_hello;
-    generic_hello.packet_type = 0;
-    generic_hello.packet_content_size = serialized_packet_size;
-    generic_hello.content = serialized_packet;
-    generic_hello.checksum = 0;
-    send_generic_packet(client_tcp_socket, &generic_hello);
-    free(user_name);
-    free(serialized_packet);
-    struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
-
-    if(server_packet->packet_type != 1)
+    // Creating this to imitate server response already at the geginning as it is asking for username.
+    struct AckPacket server_answer;
+    server_answer.player_id = 0;
+    server_answer.message = ASK_FOR_USERNAME;
+    while (server_answer.player_id == 0)
     {
-        print_failure("Registration failed!\n");
-        close_socket(client_tcp_socket);
-        return 0;
+        char *user_name = get_username_input(MIN_USERNAME, MAX_USERNAME, server_answer.message); // Check if NULL
+        struct HelloPacket client_hello;
+        client_hello.name = user_name;
+        client_hello.name_length = (uint8_t)strlen(user_name);
+        size_t serialized_packet_size;
+        char *serialized_packet = hello_packet_serialization(&client_hello, &serialized_packet_size);
+        struct GenericPacket generic_hello;
+        generic_hello.packet_type = 0;
+        generic_hello.packet_content_size = serialized_packet_size;
+        generic_hello.content = serialized_packet;
+        generic_hello.checksum = 0;
+        send_generic_packet(client_tcp_socket, &generic_hello);
+        free(user_name);
+        free(serialized_packet);
+        struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
+
+        if(server_packet->packet_type != 1)
+        {
+            print_failure("FATAL REGISTRATION FAILURE! REPORT TO DEVS!\n");
+            // printf("Error: %d/n", server_packet->packet_type);
+            close_socket(client_tcp_socket);
+            return 0;
+        }
+        ack_packet_deserialization(server_packet->content, &server_answer);
+        printf("Server message: %s\n", server_answer.message);
+        
+        free(server_packet->content);
+        free(server_packet);
     }
     print_success("Registration Successful!\n");
-    printf("Your Player ID: %d\n", ((struct AckPacket *)server_packet->content)->player_id);
-    printf("Your Team ID: %d\n", ((struct AckPacket *)server_packet->content)->team_id);
-    free(server_packet->content);
-    free(server_packet);
+    printf("Your Player ID: %d\n", server_answer.player_id);
+    printf("Your Team ID: %d\n", server_answer.team_id);
     return 1;
 }
 
