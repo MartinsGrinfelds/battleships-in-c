@@ -40,6 +40,8 @@ bool allow_offline = true;
 
 /// @brief State options.
 bool connection_active = false;
+uint8_t team_id = 0;
+uint8_t player_id = 0;
 
 // Messages
 #define ASK_FOR_USERNAME "Please Enter Username:\0"
@@ -152,8 +154,10 @@ int register_client()
         free(server_packet);
     }
     print_success("Registration Successful!\n");
-    printf("Your Player ID: %d\n", server_answer.player_id);
-    printf("Your Team ID: %d\n", server_answer.team_id);
+    player_id = server_answer.player_id;
+    team_id = server_answer.team_id;
+    printf("Your Player ID: %d\n", player_id);
+    printf("Your Team ID: %d\n", team_id);
     return 1;
 }
 
@@ -187,7 +191,7 @@ int process_server_packet()
         // STATE packet received
         printf("DEBUG: State packet received.");
         // state_packet_deserialization(server_packet->content, &live_state);
-        update_map_with_objects(&live_state, &map);
+        update_map_with_objects(&live_state, map, team_id);
         break;
 
     default:
@@ -201,7 +205,7 @@ int process_server_packet()
 void clientloop()
 {
     set_socket_non_blocking(client_tcp_socket); // Make sure socket is non-blocking.
-    SetTargetFPS(20); // TODO: Fix this setting due to fast packet receiving or remove this comment.
+    SetTargetFPS(5); // TODO: Fix this setting due to fast packet receiving or remove this comment.
     while (!WindowShouldClose())
     {
         // Receive packet from server and process it based on type.
@@ -210,6 +214,21 @@ void clientloop()
             draw_map_area(live_state.map_width, live_state.map_height, map);
             show_chat_messages(&messages);
         EndDrawing();
+        // DEMO STARTS
+        update_map_with_objects(&live_state, map, team_id); // TODO: REMOVE!!!!!
+        if (++live_state.map_objects->rotation > 3)
+        {
+            live_state.map_objects->rotation = 0;
+        }
+        if (++live_state.map_objects->x > 35)
+        {
+            live_state.map_objects->x = 10;
+        }
+        if (++live_state.map_objects->y > 40)
+        {
+            live_state.map_objects->y = 10;
+        }
+        // DEMO ENDS
     }
 }
 
@@ -224,7 +243,10 @@ void shutdown_client()
     {
         free(live_state.players);
     }
-    
+    if (map)
+    {
+        free(map);
+    }
     close_socket(client_tcp_socket);
     CloseWindow();
     print_success("Client Shutdown Successful!\n");
@@ -238,6 +260,7 @@ int main()
     startup_client();
     if (register_client())
     {
+        ClearBackground(BLACK);
         // Checking if map squares can be correctly displayed (aka square size is not float)
         // If square size if float then 
         int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
@@ -254,7 +277,8 @@ int main()
         {
             print_warning("Not Great Resolution and map size combination! Squares will adjust in size.\n");
         }
-        update_map_with_objects(&live_state, &map); // TODO: REMOVE!!!!!
+        map = calloc(live_state.map_width * live_state.map_height, sizeof(uint8_t));
+        // TODO: Fix previous lines -> make better inicialization.
         clientloop();
     }
 

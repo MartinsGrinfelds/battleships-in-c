@@ -1,4 +1,5 @@
 #include "ui_functions.h"
+#include "map.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h> //stdin
@@ -75,20 +76,21 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             }
             else
             {
+                // printf("MAP IS NULL!\n");
                 object_type = 0;
             }
-            
+            // TODO: Add other types
             switch (object_type)
             {
             case 0:
                 color = FOW_SEA_COLOR;
                 break;
             
-            case 1:
+            case ALLIED_SHIP:
                 color = SHIP_COLOR;
                 break;
 
-            case 2:
+            case ENEMY_SHIP:
                 color = ENEMY_COLOR;
                 break;
 
