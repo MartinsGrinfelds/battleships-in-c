@@ -17,6 +17,24 @@ struct Player
     char username[MAX_USERNAME];
 };
 
+/// @brief DATA-0019, BIC-59
+struct MapObject
+{
+    uint8_t object_type;
+    uint8_t x;
+    uint8_t y;
+    uint8_t rotation;
+    uint8_t team_id;
+    uint8_t info;
+};
+
+/// @brief Partially DATA-0019, BIC-59 but to represent objects in server for easy manipulation.
+struct MapObjects
+{
+    struct MapObject object;
+    struct MapObject *next_object;
+};
+
 /// @brief DATA-0021
 struct GenericPacket
 {
@@ -24,7 +42,7 @@ struct GenericPacket
     size_t packet_content_size; // ? bytes
     uint8_t packet_type;          // 1 byte
     uint8_t checksum;             // 1 byte
-    // Padding 6 bytes here <- Free space to use
+    // Padding ? bytes here <- Free space to use
     char *content; // Pointer is 8? bytes Content is saved somewhere on memory
 };
 
@@ -43,6 +61,19 @@ struct AckPacket
     uint8_t message_length;
     char* message;
 };
+
+/// @brief DATA-0031, BIC-66
+struct StatePacket
+{
+    uint8_t map_width;
+    uint8_t map_height;
+    uint8_t status;
+    uint8_t object_count;
+    struct MapObject *map_objects;
+    uint8_t player_count;
+    struct Player *players;
+};
+
 
 
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
@@ -66,3 +97,25 @@ char *ack_packet_serialization(struct AckPacket *packet, size_t *final_size);
 /// @param serialized_packet Pointer to serialized ACK packet.
 /// @param deserialized_packet Pointer to ACK packet where to put data in.
 void ack_packet_deserialization(char *serialized_packet, struct AckPacket *deserialized_packet);
+
+/// @brief Takes MapObject packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to MapObject packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+void *map_object_packet_serialization(struct MapObject *packet, size_t *final_size);
+
+/// @brief Takes serialized MapObject packet and deserializes it.
+/// @param serialized_packet Pointer to serialized MapObject packet.
+/// @param deserialized_packet Pointer to MapObject packet where to put data in.
+void *map_object_packet_deserialization(char *serialized_packet, struct MapObject *deserialized_packet);
+
+/// @brief Takes State packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to State packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+void *state_packet_serialization(struct StatePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized State packet and deserializes it.
+/// @param serialized_packet Pointer to serialized State packet.
+/// @param deserialized_packet Pointer to State packet where to put data in.
+void *state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet);

@@ -6,6 +6,10 @@
 /// @param msg Message string
 void print_failure(char * msg);
 
+/// @brief Prints a message to stdout with yellow color.
+/// @param msg Message string
+void print_warning(char * msg);
+
 /// @brief Prints a message to stdout with green color.
 /// @param msg Message string
 void print_success(char * msg);

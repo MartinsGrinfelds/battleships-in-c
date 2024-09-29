@@ -45,17 +45,20 @@ char *get_user_input(uint16_t min, uint16_t max)
 
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
-    float screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
+    int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
     // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
     screen_x = screen_x * 3 / 4; // Potencial hardcode
     screen_y = screen_y * 3 / 4; // Potencial hardcode
-    float square_x = screen_x/width, square_y = screen_y/height;
+    
+    int square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
     Color color = BLANK;
     // srand(time(NULL)); Fog of war potencial radar glitch
     // printf("Height: %f Width: %f\n", screen_y, screen_x);
     // printf("SHeight: %f SWidth: %f\n", square_y, square_x);
+    uint8_t object_type;
+    
     while (y < height)
     {
         // uint8_t decision = rand() % 5; Fog of war potencial radar glitch
@@ -66,7 +69,16 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             // {
             //     map[y*(height)+x] = 666;
             // }
-            switch (map[y*(height)+x])
+            if (map)
+            {
+                object_type = map[y*(height)+x];
+            }
+            else
+            {
+                object_type = 0;
+            }
+            
+            switch (object_type)
             {
             case 0:
                 color = FOW_SEA_COLOR;
@@ -91,7 +103,6 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
         x=0;
         y++;
     }
-    
 }
 
 char* get_username_input(uint8_t min, uint8_t max, char *message)
