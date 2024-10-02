@@ -52,15 +52,6 @@ void startup_client()
     SetTraceLogLevel(LOG_WARNING);
 
     // TEMPORARY BLOCK START
-    live_state.map_width = 50;
-    live_state.map_height = 50;
-    live_state.object_count = 1;
-    live_state.map_objects = calloc(1, sizeof(struct MapObject));
-    live_state.map_objects->object_type = 1; // Base ship
-    live_state.map_objects->team_id = 1;
-    live_state.map_objects->rotation = 0;
-    live_state.map_objects->x = 10;
-    live_state.map_objects->y = 10;
     InitWindow(1200, 1200, "Battleships");
     messages.message = malloc(sizeof("You look awesome!\0"));
     messages.message = "You look awesome!\0";
@@ -189,8 +180,7 @@ int process_server_packet()
     
     case 3:
         // STATE packet received
-        printf("DEBUG: State packet received.");
-        // state_packet_deserialization(server_packet->content, &live_state);
+        state_packet_deserialization(server_packet->content, &live_state);
         update_map_with_objects(&live_state, map, team_id);
         break;
 
@@ -214,21 +204,6 @@ void clientloop()
             draw_map_area(live_state.map_width, live_state.map_height, map);
             show_chat_messages(&messages);
         EndDrawing();
-        // DEMO STARTS
-        update_map_with_objects(&live_state, map, team_id); // TODO: REMOVE!!!!!
-        if (++live_state.map_objects->rotation > 3)
-        {
-            live_state.map_objects->rotation = 0;
-        }
-        if (++live_state.map_objects->x > 35)
-        {
-            live_state.map_objects->x = 10;
-        }
-        if (++live_state.map_objects->y > 40)
-        {
-            live_state.map_objects->y = 10;
-        }
-        // DEMO ENDS
     }
 }
 
@@ -237,14 +212,17 @@ void shutdown_client()
 {
     if (live_state.map_objects)
     {
+        printf("Freeing map objects.\n");
         free(live_state.map_objects);
     }
     if (live_state.players)
     {
+        printf("Freeing players.\n");
         free(live_state.players);
     }
     if (map)
     {
+        printf("Freeing map.\n");
         free(map);
     }
     close_socket(client_tcp_socket);

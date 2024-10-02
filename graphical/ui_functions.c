@@ -1,4 +1,5 @@
 #include "ui_functions.h"
+#include "../graphical/text_formatter.h" // print_failure()/succ and warn
 #include "map.h"
 #include <string.h>
 #include <stdlib.h>
@@ -109,12 +110,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 
 char* get_username_input(uint8_t min, uint8_t max, char *message)
 {
-    int width = GetScreenWidth();
     // Call free(address) for this one or enjoy memory leak 😍
     char* username = calloc((max + 1), sizeof(char));
     int letter_count = 0, key = 0, font_size = 40, min_text_warning = 0;
     Rectangle text_box = { 240, 180, 500, 50 };
-    bool activated_text_field = false;
     SetTargetFPS(50);
     
 

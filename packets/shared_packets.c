@@ -2,6 +2,7 @@
 #include <stdint.h> // uint definitions
 #include <stdlib.h> // exit(), size_t, malloc
 #include <stdio.h> // printf
+#include "../graphical/text_formatter.h" // print_failure()
 
 // IMPORTANT!!! SERIALIZATION IS NOT NEEDED IF PACKET CONTAINS PURE VALUES.
 // Packet serialization/deserialization helps to put information together in one chunk.
@@ -68,6 +69,8 @@ char *ack_packet_serialization(struct AckPacket *packet, size_t *final_size)
     return serialized_packet;
 }
 
+
+
 void ack_packet_deserialization(char *serialized_packet, struct AckPacket *deserialized_packet)
 {
     char *read_pointer = serialized_packet;
@@ -89,6 +92,116 @@ void ack_packet_deserialization(char *serialized_packet, struct AckPacket *deser
     }
     *write_pointer = '\0'; // Fill last message character with \0 or risk hoping it was 0
     return;
+}
+
+// char *player_packet_serialization(struct Player *packet, size_t *final_size)
+// {
+//     *final_size = sizeof(packet->socket_nr) + sizeof(packet->id) + sizeof(packet->team_id)+ sizeof(packet->message_length) + packet->message_length;
+//     // int socket_nr;
+//     // uint8_t id;
+//     // uint8_t team_id;
+//     // uint8_t status;
+//     // char username[MAX_USERNAME]; NO NEED TO SERIALIZE IF FIXED SIZE
+// }
+
+// void player_packet_deserialization(char *serialized_packet, Player *deserialized_packet)
+// {
+// }
+
+char *state_packet_serialization(struct StatePacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->map_width) + sizeof(packet->map_height) + sizeof(packet->status) + sizeof(packet->object_count) + sizeof(packet->player_count);
+    *final_size += (packet->object_count * sizeof(struct MapObject)) + (packet->player_count * sizeof(struct Player));
+    // Call free(address) for this one or enjoy memory leak 😍
+    char* serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    // uint8_t map_width;
+    *(uint8_t *)filler_pointer = packet->map_width;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t map_height;
+    *(uint8_t *)filler_pointer = packet->map_height;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t status;
+    *(uint8_t *)filler_pointer = packet->status;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t object_count;
+    *(uint8_t *)filler_pointer = packet->object_count;
+    filler_pointer += sizeof(uint8_t);
+    // struct MapObject *map_objects;
+    struct MapObject *object_filler_pointer = (struct MapObject *)filler_pointer;
+    struct MapObject *object_pointer = packet->map_objects;
+    size_t counter = 0;
+    while (counter++ < packet->object_count)
+    {
+        *object_filler_pointer++ = *object_pointer++;
+    }
+    filler_pointer = (char *)object_filler_pointer;
+    // uint8_t player_count;
+    *(uint8_t *)filler_pointer = packet->player_count;
+    filler_pointer += sizeof(uint8_t);
+    // struct Player *players;
+    struct Player *player_filler_pointer = (struct Player *)filler_pointer;
+    struct Player *player_pointer = packet->players;
+    counter = 0;
+    while (counter++ < packet->player_count)
+    {
+        *player_filler_pointer++ = *player_pointer++;
+    }
+    return serialized_packet;
+}
+
+void state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet)
+{
+    // Checks of already initialized memory.
+    if (deserialized_packet->map_objects)
+    {
+        print_warning("WARNING: Deserialization map objects already initialized. Freeing.\n");
+        free(deserialized_packet->map_objects);
+        deserialized_packet->map_objects = NULL;
+    }
+    if (deserialized_packet->players)
+    {
+        print_warning("WARNING: Deserialization players already initialized. Freeing.\n");
+        free(deserialized_packet->players);
+        deserialized_packet->players = NULL;
+    }
+
+    char *read_pointer = serialized_packet;
+    // uint8_t map_width;
+    deserialized_packet->map_width = *(uint8_t *)read_pointer++;
+    // uint8_t map_height;
+    deserialized_packet->map_height = *(uint8_t *)read_pointer++;
+    // uint8_t status;
+    deserialized_packet->status = *(uint8_t *)read_pointer++;
+    // uint8_t object_count;
+    deserialized_packet->object_count = *(uint8_t *)read_pointer++;
+    // struct MapObject *map_objects;
+    if (deserialized_packet->object_count)
+    {
+        deserialized_packet->map_objects = calloc(deserialized_packet->object_count, sizeof(struct MapObject));
+        struct MapObject* object_start_pointer = (void *)read_pointer;
+        struct MapObject *object_read_pointer = object_start_pointer;
+        struct MapObject *object_write_pointer = deserialized_packet->map_objects;
+        while (((struct MapObject *)object_read_pointer - (struct MapObject *)object_start_pointer) < deserialized_packet->object_count)
+        {
+            *object_write_pointer++ = *object_read_pointer++;
+        }
+        read_pointer = (void *)object_read_pointer;
+    }
+    // uint8_t player_count;
+    deserialized_packet->player_count = *(uint8_t *)read_pointer++;
+    // struct Player *players;
+    if (deserialized_packet->player_count)
+    {
+        deserialized_packet->players = calloc(deserialized_packet->player_count, sizeof(struct Player));
+        struct Player *player_start_pointer = (struct Player *)read_pointer;
+        struct Player *player_read_pointer = player_start_pointer;
+        struct Player *player_write_pointer = deserialized_packet->players;
+        while (((struct Player *)player_read_pointer - (struct Player *)player_start_pointer) < deserialized_packet->player_count)
+        {
+            *player_write_pointer++ = *player_read_pointer++;
+        }
+    }
 }
 
 // TODO: Add other packet serialization/deserialization

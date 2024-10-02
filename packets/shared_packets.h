@@ -98,24 +98,24 @@ char *ack_packet_serialization(struct AckPacket *packet, size_t *final_size);
 /// @param deserialized_packet Pointer to ACK packet where to put data in.
 void ack_packet_deserialization(char *serialized_packet, struct AckPacket *deserialized_packet);
 
-/// @brief Takes MapObject packet and makes one long chunk of data so it can be used within GenericPacket.
-/// @param packet Pointer to MapObject packet.
+/// @brief Takes Player packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to Player packet.
 /// @param final_size Pointer to serialization size after serialization.
 /// @return Pointer to a serialized packet. FREE AFTER USE!!!
-void *map_object_packet_serialization(struct MapObject *packet, size_t *final_size);
+char *player_packet_serialization(struct Player *packet, size_t *final_size);
 
-/// @brief Takes serialized MapObject packet and deserializes it.
-/// @param serialized_packet Pointer to serialized MapObject packet.
-/// @param deserialized_packet Pointer to MapObject packet where to put data in.
-void *map_object_packet_deserialization(char *serialized_packet, struct MapObject *deserialized_packet);
+/// @brief Takes serialized Player packet and deserializes it.
+/// @param serialized_packet Pointer to serialized Player packet.
+/// @param deserialized_packet Pointer to Player packet where to put data in.
+void player_packet_deserialization(char *serialized_packet, struct Player *deserialized_packet);
 
 /// @brief Takes State packet and makes one long chunk of data so it can be used within GenericPacket.
 /// @param packet Pointer to State packet.
 /// @param final_size Pointer to serialization size after serialization.
 /// @return Pointer to a serialized packet. FREE AFTER USE!!!
-void *state_packet_serialization(struct StatePacket *packet, size_t *final_size);
+char *state_packet_serialization(struct StatePacket *packet, size_t *final_size);
 
 /// @brief Takes serialized State packet and deserializes it.
 /// @param serialized_packet Pointer to serialized State packet.
 /// @param deserialized_packet Pointer to State packet where to put data in.
-void *state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet);
+void state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet);
