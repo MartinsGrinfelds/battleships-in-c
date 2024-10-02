@@ -20,7 +20,7 @@ SERVER_TARGET=BattleshipsServer
 SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o packets/shared_packets.o
 CLIENT_TARGET=BattleshipsClient
 #  -lm (math "libm" library)
-CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o graphical/ui_functions.o packets/shared_packets.o
+CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o graphical/ui_functions.o packets/shared_packets.o graphical/map.o
 CLIENT_EXT_DEPENDANCIES=external_libraries/raylib-5.0_linux_amd64/lib/libraylib.a -lm
 # Other possibly required ones: -lraylib -lGL -lpthread -ldl -lrt -lX11
 

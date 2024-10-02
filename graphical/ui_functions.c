@@ -1,4 +1,6 @@
 #include "ui_functions.h"
+#include "../graphical/text_formatter.h" // print_failure()/succ and warn
+#include "map.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h> //stdin
@@ -45,17 +47,20 @@ char *get_user_input(uint16_t min, uint16_t max)
 
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
-    float screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
+    int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
     // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
     screen_x = screen_x * 3 / 4; // Potencial hardcode
     screen_y = screen_y * 3 / 4; // Potencial hardcode
-    float square_x = screen_x/width, square_y = screen_y/height;
+    
+    int square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
     Color color = BLANK;
     // srand(time(NULL)); Fog of war potencial radar glitch
     // printf("Height: %f Width: %f\n", screen_y, screen_x);
     // printf("SHeight: %f SWidth: %f\n", square_y, square_x);
+    uint8_t object_type;
+    
     while (y < height)
     {
         // uint8_t decision = rand() % 5; Fog of war potencial radar glitch
@@ -66,17 +71,27 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             // {
             //     map[y*(height)+x] = 666;
             // }
-            switch (map[y*(height)+x])
+            if (map)
+            {
+                object_type = map[y*(height)+x];
+            }
+            else
+            {
+                // printf("MAP IS NULL!\n");
+                object_type = 0;
+            }
+            // TODO: Add other types
+            switch (object_type)
             {
             case 0:
                 color = FOW_SEA_COLOR;
                 break;
             
-            case 1:
+            case ALLIED_SHIP:
                 color = SHIP_COLOR;
                 break;
 
-            case 2:
+            case ENEMY_SHIP:
                 color = ENEMY_COLOR;
                 break;
 
@@ -91,17 +106,14 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
         x=0;
         y++;
     }
-    
 }
 
 char* get_username_input(uint8_t min, uint8_t max, char *message)
 {
-    int width = GetScreenWidth();
     // Call free(address) for this one or enjoy memory leak 😍
     char* username = calloc((max + 1), sizeof(char));
     int letter_count = 0, key = 0, font_size = 40, min_text_warning = 0;
     Rectangle text_box = { 240, 180, 500, 50 };
-    bool activated_text_field = false;
     SetTargetFPS(50);
     
 

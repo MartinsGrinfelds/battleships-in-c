@@ -25,10 +25,23 @@ int gameloop = 1, gameloop_iteration = 0, player_id = 1;
 
 struct Player clients[MAX_CLIENTS];
 
+
+struct StatePacket live_state; // TODO: REMOVE it is test
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
-    memset(&clients, -1, sizeof(struct Player) * MAX_CLIENTS);
+    // DEMO BLOCK
+    live_state.map_width = 50;
+    live_state.map_height = 50;
+    live_state.object_count = 1;
+    live_state.player_count = 0;
+    live_state.map_objects = calloc(1, sizeof(struct MapObject));
+    live_state.map_objects->object_type = 1; // Base ship
+    live_state.map_objects->team_id = 0;
+    live_state.map_objects->rotation = 1;
+    live_state.map_objects->x = 20;
+    live_state.map_objects->y = 30;
+    memset(&clients, 0, sizeof(struct Player) * MAX_CLIENTS);
     // Call socket creation
     server_tcp_socket = create_socket();
     if (bind_socket_to_address(server_tcp_socket, PORT) < 0)
@@ -57,10 +70,10 @@ int add_client_socket_info(int socket)
     size_t i = 0;
     while (i < MAX_CLIENTS)
     {
-        if (clients[i].socket_nr == -1)
+        if (clients[i].status == 0)
         {
             clients[i].socket_nr = socket;
-            clients[i].status = 0;
+            clients[i].status = 1;
             clients[i].team_id = 0;
             return 0;
         }
@@ -78,7 +91,7 @@ int username_exists(char *username)
     size_t i = 0;
     while (i < MAX_CLIENTS)
     {
-        if (clients[i].socket_nr != 0)
+        if (clients[i].status != 0)
         {
             if (strcmp(username, clients[i].username) == 0)
             {
@@ -156,6 +169,10 @@ int register_client_username(int socket, char* username, uint8_t* user_id, uint8
     send_generic_packet(socket, &generic_packet);
 
     free(generic_packet.content);
+    generic_packet.packet_type = 3;
+    generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
+    send_generic_packet(socket, &generic_packet);
+    free(generic_packet.content);
     free(client_packet->content);
     free(client_packet);
     return registration_status;
@@ -167,7 +184,7 @@ void get_clients_usernames()
     size_t i = 0;
     while (i < MAX_CLIENTS)
     {
-        if (clients[i].status == 0 && clients[i].socket_nr >= 0)
+        if (clients[i].status == 1 && clients[i].socket_nr >= 0)
         {
             if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
             {
@@ -240,7 +257,7 @@ void server_cleanup()
     size_t i = 0;
     while (i < MAX_CLIENTS)
     {
-        if (clients[i].socket_nr >= 0)
+        if (clients[i].socket_nr > 0)
         {
             close_socket(clients[i].socket_nr);
             printf("Client socked with ID %d and name %s closed!\n", clients[i].socket_nr, clients[i].username);
