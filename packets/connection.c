@@ -8,6 +8,7 @@
 #include "shared_packets.h" // packets used by battleships
 #include <arpa/inet.h>      // inet_pton()
 #include <fcntl.h>          // F_GETFL, O_NONBLOCK, F_SETFL
+#include <errno.h>          // errno, EWOULDBLOCK, EAGAIN
 
 int create_socket()
 {
@@ -91,11 +92,20 @@ int accept_connection(int socket)
     memset(&client_address, 0, sizeof(client_address)); // Clean possible garbage from this.
     socklen_t client_socket_len = sizeof(client_address);
     // This can be either blocking or non-blocking based of socket settings.
-    printf("Waiting for a new connection for socket: %d\n", socket);
+    // printf("Waiting for a new connection for socket: %d\n", socket);
     int client_socket = accept(socket, (struct sockaddr *)&client_address, &client_socket_len);
     if (client_socket < 0)
     {
-        perror("Error: ");
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            // printf("No incomming connections now. Continuing...\n");
+            return -2;
+        }
+        else
+        {
+            perror("Error: ");
+            return -1;
+        }
     }
     return client_socket;
 }
@@ -104,18 +114,34 @@ struct GenericPacket *receive_generic_packet(int socket)
 {
     // Call free(address) for this one or enjoy memory leak 😍
     struct GenericPacket *received_packet = malloc(sizeof(struct GenericPacket));
-    size_t recv_status, to_receive;
-    printf("Receiving generic packet:\n");
+    ssize_t recv_status, to_receive;
+    // printf("Receiving generic packet:\n");
     // This and all further to_receive sizeof tells recv how buch bytes to receive.
     // uint32_t sequence_number;     // 4 bytes
     to_receive = sizeof(received_packet->sequence_number);
     recv_status = recv(socket, &received_packet->sequence_number, to_receive, 0);
+    if (recv_status <= 0)
+    {
+        // printf("Errno is: %d\n", errno);
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        {
+            free(received_packet);
+            // printf("No incomming data. Continuing...\n");
+            return NULL;
+        }
+        // else Leaving it here probably necessary.
+        // {
+        //     perror("Error: ");
+        //     return NULL;
+        // }
+    }
     if (recv_status != to_receive)
     {
         printf("Failure to get packet sequence number! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
     }
     // uint32_t packet_content_size; // 4 bytes
     to_receive = sizeof(received_packet->packet_content_size);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->packet_content_size, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -123,6 +149,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // uint8_t packet_type;          // 1 byte
     to_receive = sizeof(received_packet->packet_type);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->packet_type, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -130,6 +157,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // uint8_t checksum;             // 1 byte
     to_receive = sizeof(received_packet->checksum);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, &received_packet->checksum, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -145,6 +173,7 @@ struct GenericPacket *receive_generic_packet(int socket)
     }
     // Call free(address) for this one or enjoy memory leak 😍
     received_packet->content = malloc(to_receive);
+    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
     recv_status = recv(socket, received_packet->content, to_receive, 0);
     if (recv_status != to_receive)
     {
@@ -155,7 +184,7 @@ struct GenericPacket *receive_generic_packet(int socket)
 
 int send_generic_packet(int socket, struct GenericPacket *packet)
 {
-    size_t send_status, to_send;
+    ssize_t send_status, to_send;
     // uint32_t sequence_number;     // 4 bytes
     to_send = sizeof(packet->sequence_number);
     send_status = send(socket, &packet->sequence_number, to_send, 0);
