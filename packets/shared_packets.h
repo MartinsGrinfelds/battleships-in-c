@@ -14,7 +14,7 @@ struct Player
     uint8_t id;
     uint8_t team_id;
     uint8_t status;
-    char username[MAX_USERNAME];
+    char username[MAX_USERNAME + 1]; // +1 for /0 symbol.
 };
 
 /// @brief DATA-0019, BIC-59
@@ -74,6 +74,15 @@ struct StatePacket
     struct Player *players;
 };
 
+struct MessagePacket
+{
+    uint8_t message_type;
+    uint8_t sender_id;
+    uint8_t receiver_id;
+    uint8_t message_length;
+    char *message;
+};
+
 
 
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
@@ -119,3 +128,14 @@ char *state_packet_serialization(struct StatePacket *packet, size_t *final_size)
 /// @param serialized_packet Pointer to serialized State packet.
 /// @param deserialized_packet Pointer to State packet where to put data in.
 void state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet);
+
+/// @brief Takes Message packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to Message packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *message_packet_serialization(struct MessagePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized Message packet and deserializes it.
+/// @param serialized_packet Pointer to serialized Message packet.
+/// @param deserialized_packet Pointer to Mesaage packet where to put data in.
+void message_packet_deserialization(char *serialized_packet, struct MessagePacket *deserialized_packet);

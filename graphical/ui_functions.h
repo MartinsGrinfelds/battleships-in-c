@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h> // uint definitions
+#include "../packets/shared_packets.h"
 
 // Color definitions for map.
 // Ideas from book "Palette Perfect for Graphic Designers & Illustrators... " by Sara Caldas.
@@ -46,3 +47,17 @@ char *get_username_input(uint8_t min, uint8_t max, char *message);
 /// Should go through messages that are linked list:
 /// sender_name (ends with /0), receiver_name (ends with /0), message (ends with /0), next_message (pointer)
 void show_chat_messages(struct Message* messages);
+
+/// @brief Displays game info at the right side of the window.
+/// @param player_name Current player name.
+/// @param player_id Current player ID.
+/// @param team_id Current player team ID.
+/// @param state Game state containing info about players.
+/// @param game_message Message about game (more from server).
+/// @param action_message Message about what is happening now (player selected action or what to do).
+void draw_status_area(char* player_name, uint8_t player_id, uint8_t team_id, struct StatePacket *state, char *game_message, char* action_message);
+
+/// @brief Gets info as text about players and their team IDs
+/// @param state Game state.
+/// @return Text about players
+char *get_player_info(struct StatePacket *state); // TODO: not quite UI function, investigate.

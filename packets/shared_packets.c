@@ -11,6 +11,8 @@
 // It is required to read multiple address contents into one chunk of data.
 // To make this working you have to deserialize in same order as you serialized the content.
 
+//TODO: Fix potencial issue with filler_pointer + sizeof. This is wrong and works because sizeof returns 1
+
 char *hello_packet_serialization(struct HelloPacket *packet, size_t *final_size)
 {
     *final_size = sizeof(packet->name_length) + packet->name_length;
@@ -204,4 +206,54 @@ void state_packet_deserialization(char *serialized_packet, struct StatePacket *d
     }
 }
 
-// TODO: Add other packet serialization/deserialization
+char *message_packet_serialization(struct MessagePacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->message_type) + sizeof(packet->sender_id) + sizeof(packet->receiver_id) + sizeof(packet->message_length) + packet->message_length;
+    // Call free(address) for this one or enjoy memory leak 😍
+    char* serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    // uint8_t message_type;
+    *(uint8_t *)filler_pointer = packet->message_type;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t sender_id;
+    *(uint8_t *)filler_pointer = packet->sender_id;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t receiver_id;
+    *(uint8_t *)filler_pointer = packet->receiver_id;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t message_length;
+    *(uint8_t *)filler_pointer = packet->message_length;
+    filler_pointer += sizeof(uint8_t);
+    // char *message;
+    char *message_pointer = packet->message;
+    while ((size_t)filler_pointer - (size_t)serialized_packet < *final_size)
+    {
+        *filler_pointer++ = *message_pointer++;
+    }
+    return serialized_packet;
+}
+
+void message_packet_deserialization(char *serialized_packet, struct MessagePacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+    // uint8_t message_type;
+    deserialized_packet->message_type = *(uint8_t *)read_pointer++;
+    // uint8_t sender_id;
+    deserialized_packet->sender_id = *(uint8_t *)read_pointer++;
+    // uint8_t receiver_id;
+    deserialized_packet->receiver_id = *(uint8_t *)read_pointer++;
+    // uint8_t message_length;
+    deserialized_packet->message_length = *(uint8_t *)read_pointer++;
+    // char *message;
+    deserialized_packet->message = malloc(deserialized_packet->message_length + 1); // +1 is for \0 character
+    char *write_pointer = deserialized_packet->message;
+    char* message_start_pointer = read_pointer;
+    // read_pointer points at first message character.
+    // By subtracting message start pointer we can know processed name length.
+    while (read_pointer - message_start_pointer < deserialized_packet->message_length)
+    {
+        *write_pointer++ = *read_pointer++;
+    }
+    *write_pointer = '\0'; // Fill last name character with \0 or risk hoping it was 0
+    return;
+}

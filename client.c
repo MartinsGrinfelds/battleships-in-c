@@ -42,6 +42,8 @@ bool allow_offline = true;
 bool connection_active = false;
 uint8_t team_id = 0;
 uint8_t player_id = 0;
+char *user_name;
+char server_message[50]; // TODO: fix me probably making dynamic
 
 // Messages
 #define ASK_FOR_USERNAME "Please Enter Username:\0"
@@ -69,10 +71,6 @@ void startup_client()
     current_message->receiver_name = malloc(sizeof("Zenitsu\0"));
     current_message->receiver_name = "Zenitsu\0";
     current_message->next_message = NULL;
-    // map[22] = 1; // Only test REMOVE
-    // map[68] = 2; // Only test REMOVE
-    // map[69] = 2; // Only test REMOVE
-    // map[225] = 1; // Only test REMOVE
     // TEMPORARY BLOCK END
 
     // Call socket creation
@@ -109,7 +107,7 @@ int register_client()
     server_answer.message = ASK_FOR_USERNAME;
     while (server_answer.player_id == 0)
     {
-        char *user_name = get_username_input(MIN_USERNAME, MAX_USERNAME, server_answer.message);
+        user_name = get_username_input(MIN_USERNAME, MAX_USERNAME, server_answer.message);
         if (!user_name)
         {
             // User probably closed window.
@@ -126,7 +124,7 @@ int register_client()
         generic_hello.content = serialized_packet;
         generic_hello.checksum = 0;
         send_generic_packet(client_tcp_socket, &generic_hello);
-        free(user_name);
+        // free(user_name); This was here but now we use it.
         free(serialized_packet);
         struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
 
@@ -176,6 +174,16 @@ int process_server_packet()
     case 2:
         // TODO: MESSAGE packet process
         print_failure("Received MESSAGE from server but processing is not yet implemented.\n");
+        struct MessagePacket received_message;
+        message_packet_deserialization(server_packet->content, &received_message);
+        if (received_message.message_type == 3)
+        {
+            strcpy(server_message, received_message.message);
+        }
+        if (received_message.message)
+        {
+            free(received_message.message);
+        }
         break;
     
     case 3:
@@ -195,13 +203,15 @@ int process_server_packet()
 void clientloop()
 {
     set_socket_non_blocking(client_tcp_socket); // Make sure socket is non-blocking.
-    SetTargetFPS(5); // TODO: Fix this setting due to fast packet receiving or remove this comment.
+    SetTargetFPS(15); // TODO: Fix this setting due to fast packet receiving or remove this comment.
     while (!WindowShouldClose())
     {
         // Receive packet from server and process it based on type.
         process_server_packet();
         BeginDrawing();
+            ClearBackground(BLACK);
             draw_map_area(live_state.map_width, live_state.map_height, map);
+            draw_status_area(user_name, player_id, team_id, &live_state, server_message, "Wait For Players!");
             show_chat_messages(&messages);
         EndDrawing();
     }
