@@ -1,5 +1,5 @@
 #include "ui_functions.h"
-#include "../graphical/text_formatter.h" // print_failure()/succ and warn
+#include "text_formatter.h" // print_failure()/succ and warn
 #include "map.h"
 #include <string.h>
 #include <stdlib.h>
@@ -399,4 +399,87 @@ void show_chat_messages(struct Message* messages)
     // else DrawText("OFF", 447, screen_y - 115, 20, BLACK);
 
     // EndDrawing();
+}
+
+void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, struct StatePacket *state, char *game_message, char *action_message)
+{
+    int starting_x = GetScreenWidth() * 3 / 4 + 20, font_size = 20;
+    int y_position = 15;
+    char *temp_number = malloc(20), *temp_message = malloc(50); // TODO: I code terribly
+    if (player_name)
+    {
+        DrawText("Your Name:", starting_x, y_position, font_size, WHITE);
+        y_position += 20;
+        DrawText(player_name, starting_x, y_position, font_size, WHITE);
+    }
+    y_position += 25;
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 25;
+    memset(temp_number, '\0', 20); // Also here terribly.
+    snprintf(temp_number, 20, "%d", player_id); // ye
+    memset(temp_message, '\0', 50); // Also here.
+    strcat(temp_message, "Your ID: ");
+    strcat(temp_message, temp_number);
+    DrawText(temp_message, starting_x, y_position, font_size, WHITE);
+    y_position += 20;
+    memset(temp_number, '\0', 20); // And here
+    snprintf(temp_number, 20, "%d", team_id); // and ye
+    memset(temp_message, '\0', 50); // And here
+    strcat(temp_message, "Your Team ID: ");
+    strcat(temp_message, temp_number);
+    DrawText(temp_message, starting_x, y_position, font_size, WHITE);
+    free(temp_number);
+    free(temp_message);
+    y_position += 25;
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 20;
+    DrawText("Players (Their Team):", starting_x, y_position, font_size, WHITE);
+    char *player_info = NULL;
+    y_position += 25;
+    player_info = get_player_info(state);
+    DrawText(player_info, starting_x, y_position, font_size, WHITE);
+    free(player_info);
+    y_position = GetScreenHeight() * 3 / 4;
+    if (game_message)
+    {
+        DrawText(game_message, starting_x, y_position, font_size, ENEMY_COLOR);
+    }
+    y_position += 25;
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 25;
+    if (action_message)
+    {
+        DrawText(action_message, starting_x, y_position, font_size, YELLOW);
+    }
+}
+
+char *get_player_info(struct StatePacket *state)
+{
+    char *final_players;
+    if (!state)
+    {
+        final_players = calloc(sizeof("NO PLAYERS") + 1, sizeof(char));
+        strcpy(final_players, "NO PLAYERS");
+        return final_players;
+    }
+    else if (state->player_count == 0)
+    {
+        final_players = calloc(sizeof("NO PLAYERS") + 1, sizeof(char));
+        strcpy(final_players, "NO PLAYERS");
+        return final_players;
+    }
+    final_players = calloc(MAX_USERNAME*50, sizeof(char)); // Archaic and very bad appeoach. Memory bomb or idk how to call this.
+    size_t i = 0;
+    char *temp_number = malloc(20); // Also terrifying
+    while (i < state->player_count)
+    {
+        memset(temp_number, '\0', 20); // Don't forget that terrific feeling
+        strcat(final_players, state->players[i].username);
+        strcat(final_players, " (");
+        snprintf(temp_number, 20, "%d", state->players[i++].team_id); // also
+        strcat(final_players, temp_number);
+        strcat(final_players, ")\n\n");
+    }
+    free(temp_number);
+    return final_players;
 }

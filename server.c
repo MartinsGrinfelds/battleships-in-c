@@ -23,7 +23,7 @@ int gameloop = 1, gameloop_iteration = 0, player_id = 1;
 #define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
 #define INVALID_USERNAME_SPACE_AT_END "Username Cannot End With Space!"
 
-struct Player clients[MAX_CLIENTS];
+struct Player clients[MAX_CLIENTS] = {0}; //Initialize to 0 for correct name printing.
 
 
 struct StatePacket live_state; // TODO: REMOVE it is test
@@ -169,10 +169,6 @@ int register_client_username(int socket, char* username, uint8_t* user_id, uint8
     send_generic_packet(socket, &generic_packet);
 
     free(generic_packet.content);
-    generic_packet.packet_type = 3;
-    generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
-    send_generic_packet(socket, &generic_packet);
-    free(generic_packet.content);
     free(client_packet->content);
     free(client_packet);
     return registration_status;
@@ -229,6 +225,80 @@ void register_clients()
     return;
 }
 
+void update_state_with_players()
+{
+    // TODO: optimize if no change then do not update!!!
+    int active_player_count = 0;
+    size_t i = 0, to_i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            active_player_count++;
+        }
+        i++;
+    }
+    if (live_state.players)
+    {
+        free(live_state.players);
+    }
+    // DANGER IF RUN IN PARRALLEL!!!
+    live_state.players = calloc(active_player_count, sizeof(struct Player));
+    live_state.player_count = active_player_count;
+    i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            live_state.players[to_i].socket_nr = clients[i].socket_nr; // This is not required for each client but only server.
+            live_state.players[to_i].id = clients[i].id;
+            live_state.players[to_i].team_id = clients[i].team_id;
+            live_state.players[to_i].status = clients[i].status;
+            strcpy(live_state.players[to_i++].username, clients[i].username);
+        }
+        i++;
+    }
+}
+
+/// @brief Update active and connected clients with game state.
+void send_everyone_state()
+{
+    struct GenericPacket generic_packet;
+    struct MessagePacket message;
+    message.message_type = 3;
+    message.sender_id = 0;
+    message.message = "DEMO state";
+    message.message_length = sizeof("DEMO state");
+    size_t i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            generic_packet.packet_type = 3;
+            generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
+            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            {
+                print_warning("WARNING: Client Disconnected ");
+                printf("Socket(%d)\n", clients[i].socket_nr);
+                close_socket(clients[i].socket_nr);
+                clients[i].status = 4;
+            }
+            free(generic_packet.content);
+            generic_packet.packet_type = 2;
+            generic_packet.content = message_packet_serialization(&message, &generic_packet.packet_content_size);
+            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            {
+                print_warning("WARNING: Client Disconnected "); // TODO: remove duplicate code
+                printf("Socket(%d)\n", clients[i].socket_nr);
+                close_socket(clients[i].socket_nr);
+                clients[i].status = 4;
+            }
+            free(generic_packet.content);
+        }
+        i++;
+    }
+}
+
 /// @brief Do all required actions within loop.
 /// @return
 int serverloop()
@@ -244,6 +314,19 @@ int serverloop()
             printf("Loop iteration: %d\n", gameloop_iteration);
         }
         register_clients();
+        update_state_with_players();
+        send_everyone_state();
+        live_state.map_objects->x += 1;
+        if (live_state.map_objects->x > 40)
+        {
+            live_state.map_objects->x = 5;
+        }
+        
+        live_state.map_objects->y += 1;
+        if (live_state.map_objects->y > 41)
+        {
+            live_state.map_objects->y = 5;
+        }
 
         // Here is place for other server functionality.
     }
