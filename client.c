@@ -236,9 +236,28 @@ void clientloop()
     }
 }
 
+// This needs to implemented once the client (or perhaps on server side if stored there) deser func is ready for chat messages (and string literals are not used for properties but strcpy instead)
+void free_messages() { // Is the global messages var really only temp? Will it be stored on server side?
+    printf("Freeing messages!\n");
+    struct Message *current = &messages;
+    struct Message *next = NULL;  // Otherwise issues with accessing next after freeing previous
+
+    while (current != NULL) {
+        //printf("Current message being freed: %s\n", current->message);
+        next = current->next_message;
+        // free(current->sender_name);
+        // free(current->receiver_name);
+        // free(current->message);
+        //free(current);
+        current = next;
+    }
+    printf("Messages freed!\n");
+}
+
 /// @brief Executes client shutdown actions (such as main socket closing).
 void shutdown_client()
 {
+    free_messages();
     if (live_state.map_objects)
     {
         printf("Freeing map objects.\n");
