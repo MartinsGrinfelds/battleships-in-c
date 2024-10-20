@@ -323,6 +323,23 @@ void show_chat_messages(struct Message* messages)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
     Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
+
+    int max_visible_msgs = (int)(container.height / 30.0f); // This calculation should not be done every time smh, also i'm not fully sure why the number is 30 atm. but it could be hardcoded as some chat entry size
+    //printf("Max amount of visible (latest) messages for this container are: %d\n", max_visible_msgs);
+
+    int total_msg_count= 0; // Same here
+    struct Message *curr_msg = messages;
+    while (curr_msg != NULL) {
+        total_msg_count++;
+        curr_msg = curr_msg->next_message;
+    }
+    //printf("Total message count is: %d\n", total_msg_count);
+
+    int latest_msg_start_index = (total_msg_count > max_visible_msgs) ? total_msg_count - max_visible_msgs : 0;  // This bs can be replaced with scrolling once someone gets infinite free time
+    //printf("Latest message start index is: %d\n", latest_msg_start_index);
+
+
+
     // Rectangle resizer = { container.x + container.width - 17, container.y + container.height - 17, 14, 14 };
     Color borderColor = ENEMY_COLOR;
     Font font = GetFontDefault();
@@ -330,8 +347,14 @@ void show_chat_messages(struct Message* messages)
     char text[MAX_TEXT] = {0};
     bool wordWrap = true;
     struct Message* current_message = messages;
+    int current_msg_idx = 0;
     while (current_message != NULL)
     {
+        if (current_msg_idx < latest_msg_start_index) {
+            current_msg_idx++;
+            current_message = current_message->next_message;
+            continue;
+        }
         if (symbols_added > 0)
         {
             // There was messages before. Need to add new line.

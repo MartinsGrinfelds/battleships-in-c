@@ -73,12 +73,29 @@ void startup_client()
     current_message->next_message = NULL;
     // TEMPORARY BLOCK END
 
+    for (int i = 0; i < 20; i++) {
+        struct Message* new_msg = malloc(sizeof(struct Message));
+        current_message->next_message = new_msg;
+        new_msg->message = malloc(sizeof("Aww. Thanks! Tho you don't see me lol\0"));
+        new_msg->message = "Aww. Thanks! Tho you don't see me lol\0";
+        new_msg->sender_name = malloc(sizeof("Nezuko\0"));
+        new_msg->sender_name = "Nezuko\0";
+        new_msg->receiver_name = malloc(sizeof("Zenitsu\0"));
+        new_msg->receiver_name = "Zenitsu\0";
+        new_msg->next_message = NULL;
+
+        current_message = new_msg;
+
+    }
+    // This temp msg memory is leaking into the abyss but this worry will get moved to chat drawing method
+
     // Call socket creation
     client_tcp_socket = create_socket();
     if(connect_socket(client_tcp_socket, PORT, HOST) != 0)
     {
         if (allow_offline)
         {
+            printf("Offline mode activated!\n");
             return;
         }
         print_failure("Connection to server failed!\n");
@@ -95,10 +112,12 @@ int register_client()
 {
     if (!connection_active && allow_offline)
     {
+        printf("Client registered from offline mode!\n");
         return 1;
     }
     else if (!connection_active)
     {
+        printf("Connection is not active and offline mode is not allowed!\n");
         return 0;
     }
     // Creating this to imitate server response already at the geginning as it is asking for username.
