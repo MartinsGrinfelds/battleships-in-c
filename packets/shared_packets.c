@@ -258,6 +258,19 @@ void message_packet_deserialization(char *serialized_packet, struct MessagePacke
     return;
 }
 
+char *you_place_packet_serialization(struct YouPlacePacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->player_id) + sizeof(packet->object_type);
+
+    char* serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    // uint8_t player_id;
+    *filler_pointer = packet->player_id;
+    filler_pointer += sizeof(uint8_t);
+    // uint8_t object_type;
+    *filler_pointer = packet->object_type;
+    filler_pointer += sizeof(uint8_t);
+
 char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size)
 {
     *final_size = sizeof(struct MapObject);
@@ -269,6 +282,16 @@ char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_si
     filler_pointer += sizeof(struct MapObject);
 
     return serialized_packet;
+}
+
+void you_place_packet_deserialization(char *serialized_packet, struct YouPlacePacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+
+    deserialized_packet->player_id = *read_pointer++;
+    deserialized_packet->object_type = *read_pointer++;
+
+    return;
 }
 
 void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet)
