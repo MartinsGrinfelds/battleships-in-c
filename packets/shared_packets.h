@@ -83,11 +83,19 @@ struct MessagePacket
     char *message;
 };
 
+<<<<<<< HEAD
 struct YouPlacePacket
 {
     uint8_t player_id;
     uint8_t object_type; //[1...5]
 };
+=======
+struct IPlacePacket
+{
+    struct MapObject object;
+};
+
+>>>>>>> dev
 
 
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
@@ -145,6 +153,7 @@ char *message_packet_serialization(struct MessagePacket *packet, size_t *final_s
 /// @param deserialized_packet Pointer to Mesaage packet where to put data in.
 void message_packet_deserialization(char *serialized_packet, struct MessagePacket *deserialized_packet);
 
+<<<<<<< HEAD
 /// @brief Takes YouPlace packet and makes one long chunk of data so it can be used within GenericPacket.
 /// @param packet Pointer to YouPlace packet.
 /// @param final_size Pointer to serialization size after serialization.
@@ -155,3 +164,15 @@ char *you_place_packet_serialization(struct YouPlacePacket *packet, size_t *fina
 /// @param serialized_packet Pointer to serialized YouPlace packet.
 /// @param deserialized_packet Pointer to YouPlace packet where to put data in.
 void you_place_packet_deserialization(char *serialized_packet, struct YouPlacePacket *deserialized_packet);
+=======
+/// @brief Takes IPlace packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to IPlace packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized IPlace packet and deserializes it.
+/// @param serialized_packet Pointer to serialized IPlace packet.
+/// @param deserialized_packet Pointer to IPlace packet where to put data in.
+void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet);
+>>>>>>> dev
