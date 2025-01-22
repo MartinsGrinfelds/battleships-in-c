@@ -257,3 +257,26 @@ void message_packet_deserialization(char *serialized_packet, struct MessagePacke
     *write_pointer = '\0'; // Fill last name character with \0 or risk hoping it was 0
     return;
 }
+
+char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(struct MapObject);
+
+    char* serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    // struct MapObject object;
+    *(struct MapObject *)filler_pointer = packet->object;
+    filler_pointer += sizeof(struct MapObject);
+
+    return serialized_packet;
+}
+
+void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+
+    // struct MapObject object;
+    deserialized_packet->object = *(struct MapObject *)read_pointer;
+    read_pointer += sizeof(struct MapObject);
+    return;
+}
