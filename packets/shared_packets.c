@@ -270,6 +270,8 @@ char *you_place_packet_serialization(struct YouPlacePacket *packet, size_t *fina
     // uint8_t object_type;
     *filler_pointer = packet->object_type;
     filler_pointer += sizeof(uint8_t);
+    return serialized_packet;
+}
 
 char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size)
 {
