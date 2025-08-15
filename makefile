@@ -1,7 +1,7 @@
 # To better understand this Makefile:
 # TARGET: DEPENDENCY <- Structure of tasks defined here.
 # $< <- Takes first dependency (if seperated with space), this can be used as a variable in command.
-# $^ <- Takes all dependancies (if seperated with space), this can be used as a variable in command.
+# $^ <- Takes all dependencies (if seperated with space), this can be used as a variable in command.
 # $@ <- Takes target name, this can be used as a variable in command.
 
 # Do not associate target with file name.
