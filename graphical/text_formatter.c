@@ -1,6 +1,7 @@
 #include "text_formatter.h"
 #include <stdio.h> // printf()
 
+// TODO: Reformat in form [TYPE]: something
 void print_failure(char * msg)
 {
     printf("\033[91m%s\033[0m", msg);

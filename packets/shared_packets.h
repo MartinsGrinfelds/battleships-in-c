@@ -13,6 +13,12 @@ struct Player
     int socket_nr;
     uint8_t id;
     uint8_t team_id;
+    // Status:
+    // 0 - undefined
+    // 1 - new, to register name
+    // 2 - registered
+    // 3 - observer
+    // 4 - disconnected mid-game or in lobby
     uint8_t status;
     char username[MAX_USERNAME + 1]; // +1 for /0 symbol.
 };
@@ -40,7 +46,17 @@ struct GenericPacket
 {
     uint32_t sequence_number;     // 4 bytes
     size_t packet_content_size; // ? bytes
-    uint8_t packet_type;          // 1 byte
+    // Packet type (1 byte):
+    // 0 - Hello packet
+    // 1 - ACK packet
+    // 2 - Message packet
+    // 3 - State packet
+    // 4 - YouPlace packet
+    // 5 - IPlace packet
+    // 6 - YouGo packet
+    // 7 - IGo packet
+    // 8 - EndGame packet
+    uint8_t packet_type;
     uint8_t checksum;             // 1 byte
     // Padding ? bytes here <- Free space to use
     char *content; // Pointer is 8? bytes Content is saved somewhere on memory
