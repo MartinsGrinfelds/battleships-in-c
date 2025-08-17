@@ -63,7 +63,7 @@ else
   else
     # Fallback to vendored Linux static lib + typical deps
     CLIENT_EXT_DEPENDENCIES = external_libraries/raylib-5.0_linux_amd64/lib/libraylib.a
-    RAYLIB_LDFLAGS := -lm -lpthread -ldl -lrt -lX11
+    RAYLIB_LDFLAGS := -lm -lpthread -ldl -lrt
   endif
 endif
 # <--- END OF AI GENERATED SECTION --->
