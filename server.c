@@ -189,7 +189,7 @@ void get_clients_usernames()
         }
         i++;
     }
-    
+
 }
 
 /// @brief Does client registration and their status updates.
@@ -221,6 +221,8 @@ void register_clients()
             print_failure("Impossible failure!\n");
         }
     }
+    // Following function can be included also in different place but is here as related to client registration.
+    // Previous connection will be accepted but user won't be that fast to enter name in one tick
     get_clients_usernames();
     return;
 }
@@ -299,6 +301,62 @@ void send_everyone_state()
     }
 }
 
+int process_client_packet(int socket)
+{
+    struct GenericPacket *client_packet = receive_generic_packet(socket);
+    if (client_packet == NULL)
+    {
+        // TODO: Print debug info
+        return 1;
+    }
+    switch (client_packet->packet_type)
+    {
+    case 0:
+        // TODO: HELLO packet process move implementation from top to here?
+        print_failure("Client sent HELLO packet on individual processing. NEED TO MOVE IMPLEMENTATION! Socket: ");
+        printf("%d\n", socket);
+        return 2;
+    case 2:
+        // TODO: MESSAGE packet process
+        print_failure("Not implemented: ");
+        printf("Client sent MESSAGE packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    case 5:
+        // TODO: IPlace packet process
+        print_failure("Not implemented: ");
+        printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    case 7:
+        // TODO: IGo packet process
+        print_failure("Not implemented: ");
+        printf("Client sent IGo packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    default:
+        // TODO: Implement reporting issue to client if reasonable
+        print_failure("Unknown packet type received from client: ");
+        printf("%d\n", client_packet->packet_type);
+        print_failure("Socket: ");
+        printf("%d\n", socket);
+        return 2;
+    }
+    free(client_packet->content);
+    free(client_packet);
+    return 0;
+}
+
+void process_incoming_packets()
+{
+    size_t i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status == 2 && clients[i].socket_nr >= 0)
+        {
+            process_client_packet(clients[i].socket_nr);
+        }
+        i++;
+    }
+}
+
 /// @brief Do all required actions within loop.
 /// @return
 int serverloop()
@@ -316,6 +374,8 @@ int serverloop()
         register_clients();
         update_state_with_players();
         send_everyone_state();
+
+        // TEST BLOCK START (to be removed)
         live_state.map_objects->x += 1;
         if (live_state.map_objects->x > 40)
         {
@@ -327,6 +387,8 @@ int serverloop()
         {
             live_state.map_objects->y = 5;
         }
+        // TEST BLOCK END
+        process_incoming_packets();
 
         // Here is place for other server functionality.
     }
