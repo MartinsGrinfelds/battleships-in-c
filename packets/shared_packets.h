@@ -92,6 +92,11 @@ struct StatePacket
 
 struct MessagePacket
 {
+    // Message type (1 byte):
+    // 0 - Global system message
+    // 1 - Player message
+    // 2 - Timer message
+    // 3 - Player status message. Hits in target, hits missed, points, options, etc.
     uint8_t message_type;
     uint8_t sender_id;
     uint8_t receiver_id;

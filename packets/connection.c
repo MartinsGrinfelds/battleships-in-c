@@ -112,6 +112,7 @@ int accept_connection(int socket)
 
 struct GenericPacket *receive_generic_packet(int socket)
 {
+    // BUG: May fail due to non-blocking behaviour + poor bandwidth/unknown scenarios
     // Call free(address) for this one or enjoy memory leak 😍
     struct GenericPacket *received_packet = malloc(sizeof(struct GenericPacket));
     ssize_t recv_status, to_receive;
