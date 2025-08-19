@@ -157,13 +157,13 @@ void state_packet_deserialization(char *serialized_packet, struct StatePacket *d
     // Checks of already initialized memory.
     if (deserialized_packet->map_objects)
     {
-        print_warning("WARNING: Deserialization map objects already initialized. Freeing.\n");
+        // Info already present. Cleaning!
         free(deserialized_packet->map_objects);
         deserialized_packet->map_objects = NULL;
     }
     if (deserialized_packet->players)
     {
-        print_warning("WARNING: Deserialization players already initialized. Freeing.\n");
+        // Info already present. Cleaning!
         free(deserialized_packet->players);
         deserialized_packet->players = NULL;
     }

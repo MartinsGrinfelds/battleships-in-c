@@ -169,14 +169,37 @@ int register_client()
     return 1;
 }
 
+int process_message_packet(struct MessagePacket *message_packet)
+{
+    switch (message_packet->message_type)
+    {
+        // TODO: Add more message types.
+    case 3:
+        if (message_packet->message)
+        {
+            strcpy(server_message, message_packet->message);
+        }
+        else
+        {
+            print_failure("Empty message provided to process!\n");
+            return 1;
+        }
+        break;
+    default:
+        print_failure("BUG (report to developers)! ");
+        printf("Unknown message type provided to process: %d\n", message_packet->message_type);
+        return 2;
+    }
+    return 0;
+}
+
 /// @brief Try to receive a packet from server and process it accordingly.
-/// @return TODO: define this (should be action to take after packet)
 int process_server_packet()
 {
     // In case of not active connection do nothing.
     if (!connection_active)
     {
-        return 0;
+        return 1;
     }
     struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
     if (server_packet == NULL)
@@ -185,38 +208,51 @@ int process_server_packet()
         return 0;
     }
     // TODO: Verify sequence number.
-
     // TODO: Verify checksum.
 
     switch (server_packet->packet_type)
     {
     case 2:
-        // TODO: MESSAGE packet process
-        print_failure("Received MESSAGE from server but processing is not yet implemented.\n");
+        // MESSAGE packet process
         struct MessagePacket received_message;
         message_packet_deserialization(server_packet->content, &received_message);
-        if (received_message.message_type == 3)
-        {
-            strcpy(server_message, received_message.message);
-        }
+        process_message_packet(&received_message);
         if (received_message.message)
         {
             free(received_message.message);
         }
         break;
-    
     case 3:
         // STATE packet received
         state_packet_deserialization(server_packet->content, &live_state);
         update_map_with_objects(&live_state, map, team_id);
         break;
-
+    case 4:
+        // TODO: YouPlace packet received
+        print_failure("Not implemented: ");
+        printf("Client received YouPlace packet from server.\n");
+        struct YouPlacePacket you_place_packet;
+        you_place_packet_deserialization(server_packet->content, &you_place_packet);
+        break;
+    case 6:
+        // TODO: YouGo packet received
+        print_failure("Not implemented: ");
+        printf("Client received YouGo packet from server.\n");
+        break;
+    case 8:
+        // TODO: EndGame packet received
+        print_failure("Not implemented: ");
+        printf("Client received EndGame packet from server.\n");
+        break;
     default:
         print_warning("BUG (report to developers)!\n");
         print_warning("Unknown packet received from server: ");
         printf("Type (%d)\n", server_packet->packet_type);
     }
-    return server_packet->packet_type;
+    free(server_packet->content);
+    free(server_packet);
+    client_packet_nr++;
+    return 0;
 }
 
 void clientloop()

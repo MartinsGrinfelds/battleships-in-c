@@ -76,7 +76,7 @@ int update_map_with_objects(struct StatePacket *state, uint8_t *map, uint8_t all
                 break;
             
             default:
-                print_warning("BUG: Wrong rotation for object\n");
+                print_failure("BUG: Wrong rotation for object\n");
                 continue;
                 // break;
             }
