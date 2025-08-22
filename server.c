@@ -3,12 +3,14 @@
 #include "graphical/text_formatter.h" // print_failure()
 #include "packets/connection.h"
 #include "packets/shared_packets.h"
+#include "utils/timer.h"
 #include <unistd.h> // sleep()
 #include <string.h> // memset()
 
 #define PORT 12345
 #define MAX_REQUESTS 20
 #define MAX_CLIENTS 10
+#define WAIT_UNTIL_NEXT_STAGE 30
 
 #ifdef BATTLESHIPS_VERSION
 char *APP_VERSION = BATTLESHIPS_VERSION;
@@ -17,7 +19,7 @@ char *APP_VERSION = "UNDEFINED!";
 #endif
 
 int server_tcp_socket = -1;
-int gameloop = 1, gameloop_iteration = 0, player_id = 1;
+int gameloop = 1, gameloop_iteration = 0, player_id = 1, player_count_changed = 0;
 
 // Settings
 #define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
@@ -33,6 +35,7 @@ void startup_server()
     // DEMO BLOCK
     live_state.map_width = 50;
     live_state.map_height = 50;
+    live_state.status = 0;
     live_state.object_count = 1;
     live_state.player_count = 0;
     live_state.map_objects = calloc(1, sizeof(struct MapObject));
@@ -246,6 +249,7 @@ void update_state_with_players()
     }
     // DANGER IF RUN IN PARRALLEL!!!
     live_state.players = calloc(active_player_count, sizeof(struct Player));
+    player_count_changed = (live_state.player_count != active_player_count) ? 1 : 0;
     live_state.player_count = active_player_count;
     i = 0;
     while (i < MAX_CLIENTS)
@@ -260,6 +264,30 @@ void update_state_with_players()
         }
         i++;
     }
+}
+
+void update_game_status()
+{
+    if (player_count_changed)
+    {
+        if (live_state.player_count < 2)
+        {
+            live_state.status = 0;
+            stop_timer();
+        }
+        else
+        {
+            start_or_reset_timer(WAIT_UNTIL_NEXT_STAGE);
+        }
+    }
+    else
+    {
+        if (timer_has_finished_running())
+        {
+            live_state.status = 1;
+        }
+    }
+    return;
 }
 
 /// @brief Update active and connected clients with game state.
@@ -373,6 +401,7 @@ int serverloop()
         }
         register_clients();
         update_state_with_players();
+        update_game_status();
         send_everyone_state();
 
         // TEST BLOCK START (to be removed)
