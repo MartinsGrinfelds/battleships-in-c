@@ -269,9 +269,10 @@ void update_state_with_players()
 
 void update_game_status()
 {
-    // if player count changed, that means it is now either below the minimum threshold
-    // which means the timer is not needed and game state gets set back to lobby
-    // otherwise we need to reset the timer
+    // if player count changed, that means it is now either
+    // 1) below the minimum threshold which means the timer is not needed and game state gets set back to lobby
+    // or
+    // 2) we need to reset the timer due to players joining / disconnecting
     if (player_count_changed)
     {
         if (live_state.player_count < MINIMUM_PLAYER_COUNT)
