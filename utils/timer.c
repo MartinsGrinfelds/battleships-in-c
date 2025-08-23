@@ -12,13 +12,14 @@ static bool has_finished_running = false;
 static int duration_seconds = 0;
 
 static void* timer_func() {
+    pthread_mutex_lock(&lock);
     int remaining_seconds = duration_seconds;
     has_finished_running = false;
+    is_running = true;
 
     while (remaining_seconds > 0 && !should_stop) {
         sleep(1);
 
-        pthread_mutex_lock(&lock);
         if (should_reset) {
             remaining_seconds = duration_seconds;
             should_reset = false;
@@ -28,7 +29,6 @@ static void* timer_func() {
             remaining_seconds--;
             printf("time remaining: %ds\n", remaining_seconds);
         }
-        pthread_mutex_unlock(&lock);
     }
 
     if (remaining_seconds == 0 && !should_stop) {
@@ -37,6 +37,7 @@ static void* timer_func() {
     }
 
     is_running = false;
+    pthread_mutex_unlock(&lock);
     return NULL;
 }
 
