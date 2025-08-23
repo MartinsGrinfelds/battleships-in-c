@@ -10,6 +10,7 @@
 #define PORT 12345
 #define MAX_REQUESTS 20
 #define MAX_CLIENTS 10
+#define MINIMUM_PLAYER_COUNT 2
 #define WAIT_UNTIL_NEXT_STAGE 30
 
 #ifdef BATTLESHIPS_VERSION
@@ -268,9 +269,12 @@ void update_state_with_players()
 
 void update_game_status()
 {
+    // if player count changed, that means it is now either below the minimum threshold
+    // which means the timer is not needed and game state gets set back to lobby
+    // otherwise we need to reset the timer
     if (player_count_changed)
     {
-        if (live_state.player_count < 2)
+        if (live_state.player_count < MINIMUM_PLAYER_COUNT)
         {
             live_state.status = 0;
             stop_timer();
@@ -280,6 +284,8 @@ void update_game_status()
             start_or_reset_timer(WAIT_UNTIL_NEXT_STAGE);
         }
     }
+    // if player count did not change, don't do anything unless the timer was already running and has finished
+    // in which case game state moves to ship placement
     else
     {
         if (timer_has_finished_running())
