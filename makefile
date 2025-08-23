@@ -17,7 +17,7 @@ else
 endif
 
 SERVER_TARGET=BattleshipsServer
-SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o packets/shared_packets.o
+SERVER_DEPENDENCIES=server.o packets/connection.o graphical/text_formatter.o packets/shared_packets.o utils/timer.o
 CLIENT_TARGET=BattleshipsClient
 #  -lm (math "libm" library)
 CLIENT_DEPENDENCIES=client.o packets/connection.o graphical/text_formatter.o graphical/ui_functions.o packets/shared_packets.o graphical/map.o
