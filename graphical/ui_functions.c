@@ -499,9 +499,17 @@ char *get_player_info(struct StatePacket *state)
         memset(temp_number, '\0', 20); // Don't forget that terrific feeling
         strcat(final_players, state->players[i].username);
         strcat(final_players, " (");
-        snprintf(temp_number, 20, "%d", state->players[i++].team_id); // also
-        strcat(final_players, temp_number);
+        if (state->players[i].team_id == 0)
+        {
+            strcat(final_players, "Observer");
+        }
+        else
+        {
+            snprintf(temp_number, 20, "%d", state->players[i++].team_id);
+            strcat(final_players, temp_number);
+        }
         strcat(final_players, ")\n\n");
+        i++;
     }
     free(temp_number);
     return final_players;
