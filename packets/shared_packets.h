@@ -12,6 +12,9 @@ struct Player
 {
     int socket_nr;
     uint8_t id;
+    // Team ID (1 byte):
+    // 0 - Observer
+    // >0 - Team number
     uint8_t team_id;
     // Status:
     // 0 - undefined
@@ -83,6 +86,10 @@ struct StatePacket
 {
     uint8_t map_width;
     uint8_t map_height;
+    // Game status (1 byte):
+    // 0 - Lobby, waiting for players
+    // 1 - Ship placement
+    // 2 - Main game
     uint8_t status;
     uint8_t object_count;
     struct MapObject *map_objects;

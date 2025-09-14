@@ -11,7 +11,7 @@
 #define MAX_REQUESTS 20
 #define MAX_CLIENTS 10
 #define MINIMUM_PLAYER_COUNT 2
-#define WAIT_UNTIL_NEXT_STAGE 30
+#define WAIT_UNTIL_NEXT_STAGE 30 // How long to wait for more players in lobby
 
 #ifdef BATTLESHIPS_VERSION
 char *APP_VERSION = BATTLESHIPS_VERSION;
@@ -188,7 +188,17 @@ void get_clients_usernames()
         {
             if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
             {
-                clients[i].status++;
+                if (live_state.status == 0)
+                {
+                    // Game still in lobby.
+                    // TODO: Check if team is configured.
+                    clients[i].status = 2; // Registered
+                }
+                else
+                {
+                    // TODO: Check if team is configured.
+                    clients[i].status = 3; // Observer
+                }
             }
         }
         i++;
@@ -205,7 +215,7 @@ void register_clients()
     switch (client_socket)
     {
     case -1:
-        print_failure("Failure while accepting connection\n");
+        print_failure("Failure while accepting client connection\n");
         break;
     case -2:
         // printf("No client connections waiting.\n");
@@ -273,11 +283,10 @@ void update_game_status()
     // 1) below the minimum threshold which means the timer is not needed and game state gets set back to lobby
     // or
     // 2) we need to reset the timer due to players joining / disconnecting
-    if (player_count_changed)
+    if (player_count_changed && live_state.status == 0)
     {
         if (live_state.player_count < MINIMUM_PLAYER_COUNT)
         {
-            live_state.status = 0;
             stop_timer();
         }
         else
@@ -287,11 +296,13 @@ void update_game_status()
     }
     // if player count did not change, don't do anything unless the timer was already running and has finished
     // in which case game state moves to ship placement
-    else
+    else if (live_state.status == 0)
     {
         if (timer_has_finished_running())
         {
             live_state.status = 1;
+            print_success("Lobby is closing. Players in game: ");
+            printf("%d\n", live_state.player_count);
         }
     }
     return;
