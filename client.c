@@ -169,6 +169,19 @@ int register_client()
     return 1;
 }
 
+void place_ship(uint8_t ship_type)
+{
+    // TODO: Gather data of allowed placemenht squares based on team number.
+    // 1. Get player pressed coordinates.
+    
+    // 2. Convert coordinates to map square X,Y.
+    // 3. Check if placement is allowed if not inform player and return to 1.
+    // 4. Show ship on map.
+    // 5. Allow rotation in valid positions.
+    // 6. Once player confirms placement send data to server.
+    // 7. Wait and validate server response.
+}
+
 int process_message_packet(struct MessagePacket *message_packet)
 {
     switch (message_packet->message_type)
@@ -233,6 +246,9 @@ int process_server_packet()
         printf("Client received YouPlace packet from server.\n");
         struct YouPlacePacket you_place_packet;
         you_place_packet_deserialization(server_packet->content, &you_place_packet);
+        // Now call function for ship placement.
+        place_ship(you_place_packet.object_type);
+
         break;
     case 6:
         // TODO: YouGo packet received

@@ -33,18 +33,12 @@ struct StatePacket live_state; // TODO: REMOVE it is test
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
-    // DEMO BLOCK
+    // TODO: Confirm DEMO BLOCK of live_state is removed
     live_state.map_width = 50;
     live_state.map_height = 50;
     live_state.status = 0;
     live_state.object_count = 1;
     live_state.player_count = 0;
-    live_state.map_objects = calloc(1, sizeof(struct MapObject));
-    live_state.map_objects->object_type = 1; // Base ship
-    live_state.map_objects->team_id = 0;
-    live_state.map_objects->rotation = 1;
-    live_state.map_objects->x = 20;
-    live_state.map_objects->y = 30;
     memset(&clients, 0, sizeof(struct Player) * MAX_CLIENTS);
     // Call socket creation
     server_tcp_socket = create_socket();
@@ -421,20 +415,6 @@ int serverloop()
         update_state_with_players();
         update_game_status();
         send_everyone_state();
-
-        // TEST BLOCK START (to be removed)
-        live_state.map_objects->x += 1;
-        if (live_state.map_objects->x > 40)
-        {
-            live_state.map_objects->x = 5;
-        }
-        
-        live_state.map_objects->y += 1;
-        if (live_state.map_objects->y > 41)
-        {
-            live_state.map_objects->y = 5;
-        }
-        // TEST BLOCK END
         process_incoming_packets();
 
         // Here is place for other server functionality.
