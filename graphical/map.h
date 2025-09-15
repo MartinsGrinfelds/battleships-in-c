@@ -10,6 +10,17 @@
 #define ALLIED_SHIP_TAIL 3
 #define ENEMY_SHIP 4
 #define ENEMY_SHIP_TAIL 5
+#define PLACED_SHIP 6 // Temporarily placed ship (not confirmed by server yet)
+#define PLACED_SHIP_TAIL 7
+
+/// @brief Adds object to map based on index, rotation and type.
+/// @param map Pointer to map (must be initialized).
+/// @param width Map width.
+/// @param index Index on map to add object (0 based).
+/// @param rotation Rotation of object (0 - Up, 1 - Right, 2 - Down, 3 - Left).
+/// @param object_type Type of object
+/// @param ship_id ID to mark ship on map (for example ALLIED_SHIP, ENEMY_SHIP, PLACED_SHIP).
+int add_object(uint8_t *map, uint8_t width, size_t index, uint8_t rotation, uint8_t object_type, uint8_t ship_id);
 
 /// @brief Takes StatePacket and fills map with objects.
 /// @param state Current state of game
@@ -23,3 +34,10 @@ int update_map_with_objects(struct StatePacket *state, uint8_t *map, uint8_t all
 /// @param y Current y coordinate
 /// @return Your index for 1D map (Enjoy!!!)
 size_t get_map_index(size_t width, size_t x, size_t y);
+
+/// @brief Gets map index from absolute X, Y position.
+/// @param width Map width
+/// @param absolute_x Absolute X position
+/// @param absolute_y Absolute Y position
+/// @return Your index for 1D map. If -1 then out of bounds.
+int get_map_index_from_absolute(size_t width, float absolute_x, float absolute_y);

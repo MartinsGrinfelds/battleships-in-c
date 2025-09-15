@@ -37,7 +37,7 @@ void startup_server()
     live_state.map_width = 50;
     live_state.map_height = 50;
     live_state.status = 0;
-    live_state.object_count = 1;
+    live_state.object_count = 0;
     live_state.player_count = 0;
     memset(&clients, 0, sizeof(struct Player) * MAX_CLIENTS);
     // Call socket creation

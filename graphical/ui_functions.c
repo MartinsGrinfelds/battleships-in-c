@@ -48,10 +48,9 @@ char *get_user_input(uint16_t min, uint16_t max)
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
-    screen_x = screen_x * 3 / 4; // Potencial hardcode
-    screen_y = screen_y * 3 / 4; // Potencial hardcode
+    screen_x = screen_x * MAP_AREA_PERCENTAGE;
+    screen_y = screen_y * MAP_AREA_PERCENTAGE;
     
     int square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
@@ -93,6 +92,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 
             case ENEMY_SHIP:
                 color = ENEMY_COLOR;
+                break;
+            
+            case PLACED_SHIP:
+                color = PLACED_SHIP_COLOR;
                 break;
 
             default:
@@ -322,7 +325,7 @@ static void DrawTextBoxedSelectable(Font font, const char *text, Rectangle rec, 
 void show_chat_messages(struct Message* messages)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
+    Rectangle container = { 0, (screen_y) * MAP_AREA_PERCENTAGE, screen_x * MAP_AREA_PERCENTAGE, screen_y / 4};
 
     int max_visible_msgs = (int)(container.height / 30.0f); // This calculation should not be done every time smh, also i'm not fully sure why the number is 30 atm. but it could be hardcoded as some chat entry size
     //printf("Max amount of visible (latest) messages for this container are: %d\n", max_visible_msgs);

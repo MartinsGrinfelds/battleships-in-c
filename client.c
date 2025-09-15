@@ -44,6 +44,8 @@ uint8_t team_id = 0;
 uint8_t player_id = 0;
 char *user_name;
 char server_message[50]; // TODO: fix me probably making dynamic
+uint8_t ship_to_place = 1; // 0 means no ship to place
+int placed_ship_index = -1, placed_ship_rotation = 0; // -1 means no ship placed yet or invalid
 
 // Messages
 #define ASK_FOR_USERNAME "Please Enter Username:\0"
@@ -172,14 +174,54 @@ int register_client()
 void place_ship(uint8_t ship_type)
 {
     // TODO: Gather data of allowed placemenht squares based on team number.
+    if (ship_type == 0) {
+        // No ship to place.
+        return;
+    }
     // 1. Get player pressed coordinates.
-    
-    // 2. Convert coordinates to map square X,Y.
-    // 3. Check if placement is allowed if not inform player and return to 1.
-    // 4. Show ship on map.
+    int new_placed_ship_index = -1;
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        Vector2 mouse_pos;
+        mouse_pos = GetMousePosition();
+        // 2. Convert coordinates to map square X,Y.
+        new_placed_ship_index = get_map_index_from_absolute(live_state.map_width, mouse_pos.x, mouse_pos.y);
+        if (new_placed_ship_index == -1) {
+            // Invalid placement.
+            print_warning("Invalid ship placement!\n");
+            return;
+        }
+        // TODO: 3. Check if placement is allowed if not inform player and return to 1.
+    }
+    else if (placed_ship_index == -1 && new_placed_ship_index == -1) // No ship placed yet.
+    {
+        return;
+    }
+    // 4. Show ship on map if all checks passed
     // 5. Allow rotation in valid positions.
-    // 6. Once player confirms placement send data to server.
-    // 7. Wait and validate server response.
+    int new_placed_ship_rotation = -1;
+    if (GetKeyPressed() == KEY_R)
+    {
+        // Rotate ship.
+        new_placed_ship_rotation = (placed_ship_rotation + 1) % 4;
+    }
+    // Clean previous placement if new placement defined.
+    if (new_placed_ship_index != -1 || new_placed_ship_rotation != -1)
+    {
+        // Remove old placement.
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, FOW_SEA);
+        if (new_placed_ship_rotation != -1)
+        {
+            placed_ship_rotation = new_placed_ship_rotation;
+        }
+        if (new_placed_ship_index != -1)
+        {
+            placed_ship_index = new_placed_ship_index;
+        }
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, PLACED_SHIP);
+    }
+    // TODO: 6. Once player confirms placement send data to server.
+    // TODO: 7. Wait and validate server response.
 }
 
 int process_message_packet(struct MessagePacket *message_packet)
@@ -246,9 +288,11 @@ int process_server_packet()
         printf("Client received YouPlace packet from server.\n");
         struct YouPlacePacket you_place_packet;
         you_place_packet_deserialization(server_packet->content, &you_place_packet);
-        // Now call function for ship placement.
-        place_ship(you_place_packet.object_type);
-
+        // Now call function for ship placement. Not directly because we need to update UI all the time.
+        if (ship_to_place != 0) {
+            print_warning("BUG (report to developers)! You already have a ship to place!\n");
+        }
+        ship_to_place = you_place_packet.object_type;
         break;
     case 6:
         // TODO: YouGo packet received
@@ -284,6 +328,7 @@ void clientloop()
             draw_map_area(live_state.map_width, live_state.map_height, map);
             draw_status_area(user_name, player_id, team_id, &live_state, server_message, "Wait For Players!");
             show_chat_messages(&messages);
+            place_ship(ship_to_place);
         EndDrawing();
     }
 }
