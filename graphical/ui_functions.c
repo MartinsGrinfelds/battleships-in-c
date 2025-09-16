@@ -85,6 +85,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             case 0:
                 color = FOW_SEA_COLOR;
                 break;
+
+            case VISIBLE_SEA:
+                color = SEA_COLOR;
+                break;
             
             case ALLIED_SHIP:
                 color = SHIP_COLOR;
@@ -429,7 +433,7 @@ void show_chat_messages(struct Message* messages)
 
 void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, struct StatePacket *state, char *game_message, char *action_message)
 {
-    int starting_x = GetScreenWidth() * 3 / 4 + 20, font_size = 20;
+    int starting_x = GetScreenWidth() * MAP_AREA_PERCENTAGE + 20, font_size = 20;
     int y_position = 15;
     char *temp_number = malloc(20), *temp_message = malloc(50); // TODO: I code terribly
     if (player_name)
@@ -465,12 +469,13 @@ void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, str
     player_info = get_player_info(state);
     DrawText(player_info, starting_x, y_position, font_size, WHITE);
     free(player_info);
-    y_position = GetScreenHeight() * 3 / 4;
+    y_position = GetScreenHeight() * MAP_AREA_PERCENTAGE - 30; // and some padding
     if (game_message)
     {
         DrawText(game_message, starting_x, y_position, font_size, ENEMY_COLOR);
     }
     y_position += 25;
+    y_position += 30; // Restof the padding
     DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
     y_position += 25;
     if (action_message)

@@ -26,6 +26,11 @@ int gameloop = 1, gameloop_iteration = 0, player_id = 1, player_count_changed = 
 #define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
 #define INVALID_USERNAME_SPACE_AT_END "Username Cannot End With Space!"
 
+// Status messages
+#define STATE_MESSAGE_LOBBY "Game in Lobby.\n\nWaiting for players..."
+#define STATE_MESSAGE_SHIP_PLACEMENT "Place your ships!"
+#define STATE_MESSAGE_WAITING_ON_PLAYERS "Waiting on others..."
+
 struct Player clients[MAX_CLIENTS] = {0}; //Initialize to 0 for correct name printing.
 
 
@@ -33,13 +38,20 @@ struct StatePacket live_state; // TODO: REMOVE it is test
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
-    // TODO: Confirm DEMO BLOCK of live_state is removed
+    // TODO: Improve map size configuration.
     live_state.map_width = 50;
     live_state.map_height = 50;
     live_state.status = 0;
-    live_state.object_count = 0;
+    live_state.object_count = 1;
+    live_state.map_objects = malloc(sizeof(struct MapObject) * 1);
+    live_state.map_objects[0].object_type = 1;
+    live_state.map_objects[0].x = 25;
+    live_state.map_objects[0].y = 25;
+    live_state.map_objects[0].rotation = 0;
+    live_state.map_objects[0].team_id = 0;
     live_state.player_count = 0;
     memset(&clients, 0, sizeof(struct Player) * MAX_CLIENTS);
+
     // Call socket creation
     server_tcp_socket = create_socket();
     if (bind_socket_to_address(server_tcp_socket, PORT) < 0)
@@ -302,6 +314,21 @@ void update_game_status()
     return;
 }
 
+char *get_state_message()
+{
+    switch (live_state.status)
+    {
+    case 0:
+        return STATE_MESSAGE_LOBBY;
+    case 1:
+        return STATE_MESSAGE_SHIP_PLACEMENT;
+    case 2:
+        return STATE_MESSAGE_WAITING_ON_PLAYERS;
+    default:
+        return "GAME BROKE!";
+    }
+}
+
 /// @brief Update active and connected clients with game state.
 void send_everyone_state()
 {
@@ -309,13 +336,16 @@ void send_everyone_state()
     struct MessagePacket message;
     message.message_type = 3;
     message.sender_id = 0;
-    message.message = "DEMO state";
-    message.message_length = sizeof("DEMO state");
+    char *state_message = get_state_message();
+    message.message = state_message;
+    message.message_length = strlen(state_message);
     size_t i = 0;
     while (i < MAX_CLIENTS)
     {
         if (clients[i].status > 1 && clients[i].status < 4)
         {
+            // TODO: I am not sure what is happening here
+            // Probably need to send each player state based on their team and status HERE
             generic_packet.packet_type = 3;
             generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
             if(send_generic_packet(clients[i].socket_nr, &generic_packet))
@@ -330,7 +360,7 @@ void send_everyone_state()
             generic_packet.content = message_packet_serialization(&message, &generic_packet.packet_content_size);
             if(send_generic_packet(clients[i].socket_nr, &generic_packet))
             {
-                print_warning("WARNING: Client Disconnected "); // TODO: remove duplicate code
+                print_warning("WARNING: Client Disconnected ");
                 printf("Socket(%d)\n", clients[i].socket_nr);
                 close_socket(clients[i].socket_nr);
                 clients[i].status = 4;
@@ -363,8 +393,29 @@ int process_client_packet(int socket)
         return 2;
     case 5:
         // TODO: IPlace packet process
-        print_failure("Not implemented: ");
-        printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
+        // print_failure("Not implemented: ");
+        print_warning("Client IPlace implemented in DEMO mode only!\n");
+        struct IPlacePacket i_place_packet;
+        memcpy(&i_place_packet, client_packet->content, sizeof(struct IPlacePacket));
+        printf("Client placed ship type %d at X:%d Y:%d\n", i_place_packet.object.object_type, i_place_packet.object.x, i_place_packet.object.y);
+        // Now add object to live state.
+        if (live_state.object_count == 0)
+        {
+            live_state.map_objects = malloc(sizeof(struct MapObject) * 1);
+            live_state.object_count = 1;
+        }
+        else
+        {
+            live_state.map_objects = realloc(live_state.map_objects, sizeof(struct MapObject) * (live_state.object_count + 1));
+            live_state.object_count++;
+        }
+        live_state.map_objects[live_state.object_count - 1].object_type = i_place_packet.object.object_type;
+        live_state.map_objects[live_state.object_count - 1].x = i_place_packet.object.x;
+        live_state.map_objects[live_state.object_count - 1].y = i_place_packet.object.y;
+        live_state.map_objects[live_state.object_count - 1].rotation = i_place_packet.object.rotation; // TODO: Get rotation from client.
+        live_state.map_objects[live_state.object_count - 1].team_id = 1; // TODO: Get team from client.
+        live_state.map_objects[live_state.object_count - 1].info = 0;
+        // printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
         return 2;
     case 7:
         // TODO: IGo packet process
@@ -416,6 +467,16 @@ int serverloop()
         update_game_status();
         send_everyone_state();
         process_incoming_packets();
+
+        // DEMO: move ship up
+        if (live_state.object_count > 0)
+        {
+            live_state.map_objects[0].y = (live_state.map_objects[0].y + 1);
+            if (live_state.map_objects[0].y >= live_state.map_height - 6)
+            {
+                live_state.map_objects[0].y = 5;
+            }
+        }
 
         // Here is place for other server functionality.
     }

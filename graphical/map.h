@@ -13,6 +13,9 @@
 #define PLACED_SHIP 6 // Temporarily placed ship (not confirmed by server yet)
 #define PLACED_SHIP_TAIL 7
 
+// Configuration
+#define VISIBLE_RANGE 10 // How far can ships see
+
 /// @brief Adds object to map based on index, rotation and type.
 /// @param map Pointer to map (must be initialized).
 /// @param width Map width.
