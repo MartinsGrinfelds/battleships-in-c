@@ -48,10 +48,9 @@ char *get_user_input(uint16_t min, uint16_t max)
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
-    screen_x = screen_x * 3 / 4; // Potencial hardcode
-    screen_y = screen_y * 3 / 4; // Potencial hardcode
+    screen_x = screen_x * MAP_AREA_PERCENTAGE;
+    screen_y = screen_y * MAP_AREA_PERCENTAGE;
     
     int square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
@@ -86,6 +85,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             case 0:
                 color = FOW_SEA_COLOR;
                 break;
+
+            case VISIBLE_SEA:
+                color = SEA_COLOR;
+                break;
             
             case ALLIED_SHIP:
                 color = SHIP_COLOR;
@@ -93,6 +96,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 
             case ENEMY_SHIP:
                 color = ENEMY_COLOR;
+                break;
+            
+            case PLACED_SHIP:
+                color = PLACED_SHIP_COLOR;
                 break;
 
             default:
@@ -322,7 +329,7 @@ static void DrawTextBoxedSelectable(Font font, const char *text, Rectangle rec, 
 void show_chat_messages(struct Message* messages)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
+    Rectangle container = { 0, (screen_y) * MAP_AREA_PERCENTAGE, screen_x * MAP_AREA_PERCENTAGE, screen_y / 4};
 
     int max_visible_msgs = (int)(container.height / 30.0f); // This calculation should not be done every time smh, also i'm not fully sure why the number is 30 atm. but it could be hardcoded as some chat entry size
     //printf("Max amount of visible (latest) messages for this container are: %d\n", max_visible_msgs);
@@ -426,7 +433,7 @@ void show_chat_messages(struct Message* messages)
 
 void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, struct StatePacket *state, char *game_message, char *action_message)
 {
-    int starting_x = GetScreenWidth() * 3 / 4 + 20, font_size = 20;
+    int starting_x = GetScreenWidth() * MAP_AREA_PERCENTAGE + 20, font_size = 20;
     int y_position = 15;
     char *temp_number = malloc(20), *temp_message = malloc(50); // TODO: I code terribly
     if (player_name)
@@ -462,12 +469,13 @@ void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, str
     player_info = get_player_info(state);
     DrawText(player_info, starting_x, y_position, font_size, WHITE);
     free(player_info);
-    y_position = GetScreenHeight() * 3 / 4;
+    y_position = GetScreenHeight() * MAP_AREA_PERCENTAGE - 30; // and some padding
     if (game_message)
     {
         DrawText(game_message, starting_x, y_position, font_size, ENEMY_COLOR);
     }
     y_position += 25;
+    y_position += 30; // Restof the padding
     DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
     y_position += 25;
     if (action_message)

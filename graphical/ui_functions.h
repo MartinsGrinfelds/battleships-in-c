@@ -14,6 +14,10 @@
     (Color) { 23, 98, 159, 255 }
 #define ENEMY_COLOR \
     (Color) { 235, 92, 109, 255 }
+#define PLACED_SHIP_COLOR \
+    (Color) { 189, 171, 174, 255 }
+
+#define MAP_AREA_PERCENTAGE 0.75 // Percentage of screen used by map area (rest by status area)
 
 struct Message
 {

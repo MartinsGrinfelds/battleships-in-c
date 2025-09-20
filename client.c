@@ -44,6 +44,11 @@ uint8_t team_id = 0;
 uint8_t player_id = 0;
 char *user_name;
 char server_message[50]; // TODO: fix me probably making dynamic
+uint8_t ship_to_place = 1; // 0 means no ship to place
+int placed_ship_index = -1, placed_ship_rotation = 0; // -1 means no ship placed yet or invalid
+
+// Messages
+#define SHIP_PLACEMENT_INSTRUCTIONS "To place ships\n\nClick on square\n\nPress R to rotate\n\nPress Enter to confirm"
 
 // Messages
 #define ASK_FOR_USERNAME "Please Enter Username:\0"
@@ -169,6 +174,80 @@ int register_client()
     return 1;
 }
 
+void place_ship(uint8_t ship_type)
+{
+    // TODO: Gather data of allowed placemenht squares based on team number.
+    if (ship_type == 0) {
+        // No ship to place.
+        return;
+    }
+    int pressed_key = GetKeyPressed();
+    // 1. Get player pressed coordinates.
+    int new_placed_ship_index = -1;
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        Vector2 mouse_pos;
+        mouse_pos = GetMousePosition();
+        // 2. Convert coordinates to map square X,Y.
+        new_placed_ship_index = get_map_index_from_absolute(live_state.map_width, mouse_pos.x, mouse_pos.y);
+        if (new_placed_ship_index == -1) {
+            // Invalid placement.
+            print_warning("Invalid ship placement!\n");
+            return;
+        }
+        // TODO: 3. Check if placement is allowed if not inform player and return to 1.
+    }
+    else if (placed_ship_index == -1 && new_placed_ship_index == -1) // No ship placed yet.
+    {
+        return;
+    }
+    // 4. Show ship on map if all checks passed
+    // 5. Allow rotation in valid positions.
+    int new_placed_ship_rotation = -1;
+    if (pressed_key == KEY_R)
+    {
+        // Rotate ship.
+        new_placed_ship_rotation = (placed_ship_rotation + 1) % 4;
+    }
+    // Clean previous placement if new placement defined.
+    if (placed_ship_index != -1 || placed_ship_rotation != -1)
+    {
+        // Remove old placement.
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, FOW_SEA);
+        if (new_placed_ship_rotation != -1)
+        {
+            placed_ship_rotation = new_placed_ship_rotation;
+        }
+        if (new_placed_ship_index != -1)
+        {
+            placed_ship_index = new_placed_ship_index;
+        }
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, PLACED_SHIP);
+    }
+    // TODO: 6. Once player confirms placement send data to server.
+    if (pressed_key == KEY_ENTER && placed_ship_index != -1 && placed_ship_rotation != -1)
+    {
+        struct IPlacePacket i_place_packet;
+        i_place_packet.object.object_type = ship_type;
+        i_place_packet.object.x = placed_ship_index % live_state.map_width;
+        i_place_packet.object.y = placed_ship_index / live_state.map_width;
+        i_place_packet.object.rotation = placed_ship_rotation;
+
+        struct GenericPacket generic_i_place;
+        generic_i_place.packet_type = 5;
+        generic_i_place.packet_content_size = sizeof(struct IPlacePacket);
+        generic_i_place.content = (char *)&i_place_packet;
+        generic_i_place.checksum = 0;
+        send_generic_packet(client_tcp_socket, &generic_i_place);
+        // Reset placement data.
+        ship_to_place = 0;
+        placed_ship_index = -1;
+        placed_ship_rotation = 0;
+        print_success("Ship placement sent to server!\n");
+    }
+    // TODO: 7. Wait and validate server response.
+}
+
 int process_message_packet(struct MessagePacket *message_packet)
 {
     switch (message_packet->message_type)
@@ -181,13 +260,13 @@ int process_message_packet(struct MessagePacket *message_packet)
         }
         else
         {
-            print_failure("Empty message provided to process!\n");
+            print_failure("Empty server message provided to process!\n");
             return 1;
         }
         break;
     default:
         print_failure("BUG (report to developers)! ");
-        printf("Unknown message type provided to process: %d\n", message_packet->message_type);
+        printf("Unknown server message type provided to process: %d\n", message_packet->message_type);
         return 2;
     }
     return 0;
@@ -228,11 +307,15 @@ int process_server_packet()
         update_map_with_objects(&live_state, map, team_id);
         break;
     case 4:
-        // TODO: YouPlace packet received
-        print_failure("Not implemented: ");
+        // YouPlace packet received
         printf("Client received YouPlace packet from server.\n");
         struct YouPlacePacket you_place_packet;
         you_place_packet_deserialization(server_packet->content, &you_place_packet);
+        // Now call function for ship placement. Not directly because we need to update UI all the time.
+        if (ship_to_place != 0) {
+            print_warning("BUG (report to developers)! You already have a ship to place!\n");
+        }
+        ship_to_place = you_place_packet.object_type;
         break;
     case 6:
         // TODO: YouGo packet received
@@ -266,8 +349,16 @@ void clientloop()
         BeginDrawing();
             ClearBackground(BLACK);
             draw_map_area(live_state.map_width, live_state.map_height, map);
-            draw_status_area(user_name, player_id, team_id, &live_state, server_message, "Wait For Players!");
+            if (live_state.status == 1)
+            {
+                draw_status_area(user_name, player_id, team_id, &live_state, server_message, SHIP_PLACEMENT_INSTRUCTIONS);
+            }
+            else
+            {
+                draw_status_area(user_name, player_id, team_id, &live_state, server_message, "");
+            }
             show_chat_messages(&messages);
+            place_ship(ship_to_place);
         EndDrawing();
     }
 }
@@ -326,8 +417,8 @@ int main()
         // Checking if map squares can be correctly displayed (aka square size is not float)
         // If square size if float then 
         int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-        screen_x = screen_x * 3 / 4; // Potencial hardcode
-        screen_y = screen_y * 3 / 4; // Potencial hardcode
+        screen_x = screen_x * MAP_AREA_PERCENTAGE;
+        screen_y = screen_y * MAP_AREA_PERCENTAGE;
         if (live_state.map_width == 0 || live_state.map_height == 0)
         {
             print_warning("Map size not defined! Setting fake one: ");
