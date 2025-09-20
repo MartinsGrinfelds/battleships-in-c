@@ -12,9 +12,18 @@ struct Player
 {
     int socket_nr;
     uint8_t id;
+    // Team ID (1 byte):
+    // 0 - Observer
+    // >0 - Team number
     uint8_t team_id;
+    // Status:
+    // 0 - undefined
+    // 1 - new, to register name
+    // 2 - registered
+    // 3 - observer
+    // 4 - disconnected mid-game or in lobby
     uint8_t status;
-    char username[MAX_USERNAME];
+    char username[MAX_USERNAME + 1]; // +1 for /0 symbol.
 };
 
 /// @brief DATA-0019, BIC-59
@@ -40,7 +49,17 @@ struct GenericPacket
 {
     uint32_t sequence_number;     // 4 bytes
     size_t packet_content_size; // ? bytes
-    uint8_t packet_type;          // 1 byte
+    // Packet type (1 byte):
+    // 0 - Hello packet
+    // 1 - ACK packet
+    // 2 - Message packet
+    // 3 - State packet
+    // 4 - YouPlace packet
+    // 5 - IPlace packet
+    // 6 - YouGo packet
+    // 7 - IGo packet
+    // 8 - EndGame packet
+    uint8_t packet_type;
     uint8_t checksum;             // 1 byte
     // Padding ? bytes here <- Free space to use
     char *content; // Pointer is 8? bytes Content is saved somewhere on memory
@@ -67,11 +86,39 @@ struct StatePacket
 {
     uint8_t map_width;
     uint8_t map_height;
+    // Game status (1 byte):
+    // 0 - Lobby, waiting for players
+    // 1 - Ship placement
+    // 2 - Main game
     uint8_t status;
     uint8_t object_count;
     struct MapObject *map_objects;
     uint8_t player_count;
     struct Player *players;
+};
+
+struct MessagePacket
+{
+    // Message type (1 byte):
+    // 0 - Global system message
+    // 1 - Player message
+    // 2 - Timer message
+    // 3 - Player status message. Hits in target, hits missed, points, options, etc.
+    uint8_t message_type;
+    uint8_t sender_id;
+    uint8_t receiver_id;
+    uint8_t message_length;
+    char *message;
+};
+
+struct YouPlacePacket
+{
+    uint8_t player_id;
+    uint8_t object_type; //[1...5]
+};
+struct IPlacePacket
+{
+    struct MapObject object;
 };
 
 
@@ -119,3 +166,36 @@ char *state_packet_serialization(struct StatePacket *packet, size_t *final_size)
 /// @param serialized_packet Pointer to serialized State packet.
 /// @param deserialized_packet Pointer to State packet where to put data in.
 void state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet);
+
+/// @brief Takes Message packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to Message packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *message_packet_serialization(struct MessagePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized Message packet and deserializes it.
+/// @param serialized_packet Pointer to serialized Message packet.
+/// @param deserialized_packet Pointer to Mesaage packet where to put data in.
+void message_packet_deserialization(char *serialized_packet, struct MessagePacket *deserialized_packet);
+
+/// @brief Takes YouPlace packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to YouPlace packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *you_place_packet_serialization(struct YouPlacePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized YouPlace packet and deserializes it.
+/// @param serialized_packet Pointer to serialized YouPlace packet.
+/// @param deserialized_packet Pointer to YouPlace packet where to put data in.
+void you_place_packet_deserialization(char *serialized_packet, struct YouPlacePacket *deserialized_packet);
+
+/// @brief Takes IPlace packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to IPlace packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size);
+
+/// @brief Takes serialized IPlace packet and deserializes it.
+/// @param serialized_packet Pointer to serialized IPlace packet.
+/// @param deserialized_packet Pointer to IPlace packet where to put data in.
+void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet);

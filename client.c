@@ -42,6 +42,13 @@ bool allow_offline = true;
 bool connection_active = false;
 uint8_t team_id = 0;
 uint8_t player_id = 0;
+char *user_name;
+char server_message[50]; // TODO: fix me probably making dynamic
+uint8_t ship_to_place = 1; // 0 means no ship to place
+int placed_ship_index = -1, placed_ship_rotation = 0; // -1 means no ship placed yet or invalid
+
+// Messages
+#define SHIP_PLACEMENT_INSTRUCTIONS "To place ships\n\nClick on square\n\nPress R to rotate\n\nPress Enter to confirm"
 
 // Messages
 #define ASK_FOR_USERNAME "Please Enter Username:\0"
@@ -69,11 +76,23 @@ void startup_client()
     current_message->receiver_name = malloc(sizeof("Zenitsu\0"));
     current_message->receiver_name = "Zenitsu\0";
     current_message->next_message = NULL;
-    // map[22] = 1; // Only test REMOVE
-    // map[68] = 2; // Only test REMOVE
-    // map[69] = 2; // Only test REMOVE
-    // map[225] = 1; // Only test REMOVE
     // TEMPORARY BLOCK END
+
+    for (int i = 0; i < 20; i++) {
+        struct Message* new_msg = malloc(sizeof(struct Message));
+        current_message->next_message = new_msg;
+        new_msg->message = malloc(sizeof("Aww. Thanks! Tho you don't see me lol\0"));
+        new_msg->message = "Aww. Thanks! Tho you don't see me lol\0";
+        new_msg->sender_name = malloc(sizeof("Nezuko\0"));
+        new_msg->sender_name = "Nezuko\0";
+        new_msg->receiver_name = malloc(sizeof("Zenitsu\0"));
+        new_msg->receiver_name = "Zenitsu\0";
+        new_msg->next_message = NULL;
+
+        current_message = new_msg;
+
+    }
+    // This temp msg memory is leaking into the abyss but this worry will get moved to chat drawing method
 
     // Call socket creation
     client_tcp_socket = create_socket();
@@ -81,6 +100,7 @@ void startup_client()
     {
         if (allow_offline)
         {
+            printf("Offline mode activated!\n");
             return;
         }
         print_failure("Connection to server failed!\n");
@@ -97,10 +117,12 @@ int register_client()
 {
     if (!connection_active && allow_offline)
     {
+        printf("Client registered from offline mode!\n");
         return 1;
     }
     else if (!connection_active)
     {
+        printf("Connection is not active and offline mode is not allowed!\n");
         return 0;
     }
     // Creating this to imitate server response already at the geginning as it is asking for username.
@@ -109,7 +131,7 @@ int register_client()
     server_answer.message = ASK_FOR_USERNAME;
     while (server_answer.player_id == 0)
     {
-        char *user_name = get_username_input(MIN_USERNAME, MAX_USERNAME, server_answer.message);
+        user_name = get_username_input(MIN_USERNAME, MAX_USERNAME, server_answer.message);
         if (!user_name)
         {
             // User probably closed window.
@@ -126,7 +148,7 @@ int register_client()
         generic_hello.content = serialized_packet;
         generic_hello.checksum = 0;
         send_generic_packet(client_tcp_socket, &generic_hello);
-        free(user_name);
+        // free(user_name); This was here but now we use it.
         free(serialized_packet);
         struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
 
@@ -152,14 +174,111 @@ int register_client()
     return 1;
 }
 
+void place_ship(uint8_t ship_type)
+{
+    // TODO: Gather data of allowed placemenht squares based on team number.
+    if (ship_type == 0) {
+        // No ship to place.
+        return;
+    }
+    int pressed_key = GetKeyPressed();
+    // 1. Get player pressed coordinates.
+    int new_placed_ship_index = -1;
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        Vector2 mouse_pos;
+        mouse_pos = GetMousePosition();
+        // 2. Convert coordinates to map square X,Y.
+        new_placed_ship_index = get_map_index_from_absolute(live_state.map_width, mouse_pos.x, mouse_pos.y);
+        if (new_placed_ship_index == -1) {
+            // Invalid placement.
+            print_warning("Invalid ship placement!\n");
+            return;
+        }
+        // TODO: 3. Check if placement is allowed if not inform player and return to 1.
+    }
+    else if (placed_ship_index == -1 && new_placed_ship_index == -1) // No ship placed yet.
+    {
+        return;
+    }
+    // 4. Show ship on map if all checks passed
+    // 5. Allow rotation in valid positions.
+    int new_placed_ship_rotation = -1;
+    if (pressed_key == KEY_R)
+    {
+        // Rotate ship.
+        new_placed_ship_rotation = (placed_ship_rotation + 1) % 4;
+    }
+    // Clean previous placement if new placement defined.
+    if (placed_ship_index != -1 || placed_ship_rotation != -1)
+    {
+        // Remove old placement.
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, FOW_SEA);
+        if (new_placed_ship_rotation != -1)
+        {
+            placed_ship_rotation = new_placed_ship_rotation;
+        }
+        if (new_placed_ship_index != -1)
+        {
+            placed_ship_index = new_placed_ship_index;
+        }
+        add_object(map, live_state.map_width, placed_ship_index, placed_ship_rotation, ship_type, PLACED_SHIP);
+    }
+    // TODO: 6. Once player confirms placement send data to server.
+    if (pressed_key == KEY_ENTER && placed_ship_index != -1 && placed_ship_rotation != -1)
+    {
+        struct IPlacePacket i_place_packet;
+        i_place_packet.object.object_type = ship_type;
+        i_place_packet.object.x = placed_ship_index % live_state.map_width;
+        i_place_packet.object.y = placed_ship_index / live_state.map_width;
+        i_place_packet.object.rotation = placed_ship_rotation;
+
+        struct GenericPacket generic_i_place;
+        generic_i_place.packet_type = 5;
+        generic_i_place.packet_content_size = sizeof(struct IPlacePacket);
+        generic_i_place.content = (char *)&i_place_packet;
+        generic_i_place.checksum = 0;
+        send_generic_packet(client_tcp_socket, &generic_i_place);
+        // Reset placement data.
+        ship_to_place = 0;
+        placed_ship_index = -1;
+        placed_ship_rotation = 0;
+        print_success("Ship placement sent to server!\n");
+    }
+    // TODO: 7. Wait and validate server response.
+}
+
+int process_message_packet(struct MessagePacket *message_packet)
+{
+    switch (message_packet->message_type)
+    {
+        // TODO: Add more message types.
+    case 3:
+        if (message_packet->message)
+        {
+            strcpy(server_message, message_packet->message);
+        }
+        else
+        {
+            print_failure("Empty server message provided to process!\n");
+            return 1;
+        }
+        break;
+    default:
+        print_failure("BUG (report to developers)! ");
+        printf("Unknown server message type provided to process: %d\n", message_packet->message_type);
+        return 2;
+    }
+    return 0;
+}
+
 /// @brief Try to receive a packet from server and process it accordingly.
-/// @return TODO: define this (should be action to take after packet)
 int process_server_packet()
 {
     // In case of not active connection do nothing.
     if (!connection_active)
     {
-        return 0;
+        return 1;
     }
     struct GenericPacket *server_packet = receive_generic_packet(client_tcp_socket);
     if (server_packet == NULL)
@@ -168,48 +287,104 @@ int process_server_packet()
         return 0;
     }
     // TODO: Verify sequence number.
-
     // TODO: Verify checksum.
 
     switch (server_packet->packet_type)
     {
     case 2:
-        // TODO: MESSAGE packet process
-        print_failure("Received MESSAGE from server but processing is not yet implemented.\n");
+        // MESSAGE packet process
+        struct MessagePacket received_message;
+        message_packet_deserialization(server_packet->content, &received_message);
+        process_message_packet(&received_message);
+        if (received_message.message)
+        {
+            free(received_message.message);
+        }
         break;
-    
     case 3:
         // STATE packet received
         state_packet_deserialization(server_packet->content, &live_state);
         update_map_with_objects(&live_state, map, team_id);
         break;
-
+    case 4:
+        // YouPlace packet received
+        printf("Client received YouPlace packet from server.\n");
+        struct YouPlacePacket you_place_packet;
+        you_place_packet_deserialization(server_packet->content, &you_place_packet);
+        // Now call function for ship placement. Not directly because we need to update UI all the time.
+        if (ship_to_place != 0) {
+            print_warning("BUG (report to developers)! You already have a ship to place!\n");
+        }
+        ship_to_place = you_place_packet.object_type;
+        break;
+    case 6:
+        // TODO: YouGo packet received
+        print_failure("Not implemented: ");
+        printf("Client received YouGo packet from server.\n");
+        break;
+    case 8:
+        // TODO: EndGame packet received
+        print_failure("Not implemented: ");
+        printf("Client received EndGame packet from server.\n");
+        break;
     default:
         print_warning("BUG (report to developers)!\n");
         print_warning("Unknown packet received from server: ");
         printf("Type (%d)\n", server_packet->packet_type);
     }
-    return server_packet->packet_type;
+    free(server_packet->content);
+    free(server_packet);
+    client_packet_nr++;
+    return 0;
 }
 
 void clientloop()
 {
     set_socket_non_blocking(client_tcp_socket); // Make sure socket is non-blocking.
-    SetTargetFPS(5); // TODO: Fix this setting due to fast packet receiving or remove this comment.
+    SetTargetFPS(15); // TODO: Fix this setting due to fast packet receiving or remove this comment.
     while (!WindowShouldClose())
     {
         // Receive packet from server and process it based on type.
         process_server_packet();
         BeginDrawing();
+            ClearBackground(BLACK);
             draw_map_area(live_state.map_width, live_state.map_height, map);
+            if (live_state.status == 1)
+            {
+                draw_status_area(user_name, player_id, team_id, &live_state, server_message, SHIP_PLACEMENT_INSTRUCTIONS);
+            }
+            else
+            {
+                draw_status_area(user_name, player_id, team_id, &live_state, server_message, "");
+            }
             show_chat_messages(&messages);
+            place_ship(ship_to_place);
         EndDrawing();
     }
+}
+
+// This needs to implemented once the client (or perhaps on server side if stored there) deser func is ready for chat messages (and string literals are not used for properties but strcpy instead)
+void free_messages() { // Is the global messages var really only temp? Will it be stored on server side?
+    printf("Freeing messages!\n");
+    struct Message *current = &messages;
+    struct Message *next = NULL;  // Otherwise issues with accessing next after freeing previous
+
+    while (current != NULL) {
+        //printf("Current message being freed: %s\n", current->message);
+        next = current->next_message;
+        // free(current->sender_name);
+        // free(current->receiver_name);
+        // free(current->message);
+        //free(current);
+        current = next;
+    }
+    printf("Messages freed!\n");
 }
 
 /// @brief Executes client shutdown actions (such as main socket closing).
 void shutdown_client()
 {
+    free_messages();
     if (live_state.map_objects)
     {
         printf("Freeing map objects.\n");
@@ -242,8 +417,8 @@ int main()
         // Checking if map squares can be correctly displayed (aka square size is not float)
         // If square size if float then 
         int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-        screen_x = screen_x * 3 / 4; // Potencial hardcode
-        screen_y = screen_y * 3 / 4; // Potencial hardcode
+        screen_x = screen_x * MAP_AREA_PERCENTAGE;
+        screen_y = screen_y * MAP_AREA_PERCENTAGE;
         if (live_state.map_width == 0 || live_state.map_height == 0)
         {
             print_warning("Map size not defined! Setting fake one: ");

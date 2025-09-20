@@ -1,5 +1,5 @@
 #include "ui_functions.h"
-#include "../graphical/text_formatter.h" // print_failure()/succ and warn
+#include "text_formatter.h" // print_failure()/succ and warn
 #include "map.h"
 #include <string.h>
 #include <stdlib.h>
@@ -48,10 +48,9 @@ char *get_user_input(uint16_t min, uint16_t max)
 void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    // printf("Height: %d Width: %d\n", screen_y, screen_x);
     // Calculate screen area used by map.
-    screen_x = screen_x * 3 / 4; // Potencial hardcode
-    screen_y = screen_y * 3 / 4; // Potencial hardcode
+    screen_x = screen_x * MAP_AREA_PERCENTAGE;
+    screen_y = screen_y * MAP_AREA_PERCENTAGE;
     
     int square_x = screen_x/width, square_y = screen_y/height;
     int x = 0, y = 0;
@@ -86,6 +85,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
             case 0:
                 color = FOW_SEA_COLOR;
                 break;
+
+            case VISIBLE_SEA:
+                color = SEA_COLOR;
+                break;
             
             case ALLIED_SHIP:
                 color = SHIP_COLOR;
@@ -93,6 +96,10 @@ void draw_map_area(uint8_t width, uint8_t height, uint8_t *map)
 
             case ENEMY_SHIP:
                 color = ENEMY_COLOR;
+                break;
+            
+            case PLACED_SHIP:
+                color = PLACED_SHIP_COLOR;
                 break;
 
             default:
@@ -322,7 +329,24 @@ static void DrawTextBoxedSelectable(Font font, const char *text, Rectangle rec, 
 void show_chat_messages(struct Message* messages)
 {
     int screen_x = GetScreenWidth(), screen_y = GetScreenHeight();
-    Rectangle container = { 0, (screen_y) * 3 / 4, screen_x * 3 / 4, screen_y / 4};
+    Rectangle container = { 0, (screen_y) * MAP_AREA_PERCENTAGE, screen_x * MAP_AREA_PERCENTAGE, screen_y / 4};
+
+    int max_visible_msgs = (int)(container.height / 30.0f); // This calculation should not be done every time smh, also i'm not fully sure why the number is 30 atm. but it could be hardcoded as some chat entry size
+    //printf("Max amount of visible (latest) messages for this container are: %d\n", max_visible_msgs);
+
+    int total_msg_count= 0; // Same here
+    struct Message *curr_msg = messages;
+    while (curr_msg != NULL) {
+        total_msg_count++;
+        curr_msg = curr_msg->next_message;
+    }
+    //printf("Total message count is: %d\n", total_msg_count);
+
+    int latest_msg_start_index = (total_msg_count > max_visible_msgs) ? total_msg_count - max_visible_msgs : 0;  // This bs can be replaced with scrolling once someone gets infinite free time
+    //printf("Latest message start index is: %d\n", latest_msg_start_index);
+
+
+
     // Rectangle resizer = { container.x + container.width - 17, container.y + container.height - 17, 14, 14 };
     Color borderColor = ENEMY_COLOR;
     Font font = GetFontDefault();
@@ -330,8 +354,14 @@ void show_chat_messages(struct Message* messages)
     char text[MAX_TEXT] = {0};
     bool wordWrap = true;
     struct Message* current_message = messages;
+    int current_msg_idx = 0;
     while (current_message != NULL)
     {
+        if (current_msg_idx < latest_msg_start_index) {
+            current_msg_idx++;
+            current_message = current_message->next_message;
+            continue;
+        }
         if (symbols_added > 0)
         {
             // There was messages before. Need to add new line.
@@ -399,4 +429,96 @@ void show_chat_messages(struct Message* messages)
     // else DrawText("OFF", 447, screen_y - 115, 20, BLACK);
 
     // EndDrawing();
+}
+
+void draw_status_area(char *player_name, uint8_t player_id, uint8_t team_id, struct StatePacket *state, char *game_message, char *action_message)
+{
+    int starting_x = GetScreenWidth() * MAP_AREA_PERCENTAGE + 20, font_size = 20;
+    int y_position = 15;
+    char *temp_number = malloc(20), *temp_message = malloc(50); // TODO: I code terribly
+    if (player_name)
+    {
+        DrawText("Your Name:", starting_x, y_position, font_size, WHITE);
+        y_position += 20;
+        DrawText(player_name, starting_x, y_position, font_size, WHITE);
+    }
+    y_position += 25;
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 25;
+    memset(temp_number, '\0', 20); // Also here terribly.
+    snprintf(temp_number, 20, "%d", player_id); // ye
+    memset(temp_message, '\0', 50); // Also here.
+    strcat(temp_message, "Your ID: ");
+    strcat(temp_message, temp_number);
+    DrawText(temp_message, starting_x, y_position, font_size, WHITE);
+    y_position += 20;
+    memset(temp_number, '\0', 20); // And here
+    snprintf(temp_number, 20, "%d", team_id); // and ye
+    memset(temp_message, '\0', 50); // And here
+    strcat(temp_message, "Your Team ID: ");
+    strcat(temp_message, temp_number);
+    DrawText(temp_message, starting_x, y_position, font_size, WHITE);
+    free(temp_number);
+    free(temp_message);
+    y_position += 25;
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 20;
+    DrawText("Players (Their Team):", starting_x, y_position, font_size, WHITE);
+    char *player_info = NULL;
+    y_position += 25;
+    player_info = get_player_info(state);
+    DrawText(player_info, starting_x, y_position, font_size, WHITE);
+    free(player_info);
+    y_position = GetScreenHeight() * MAP_AREA_PERCENTAGE - 30; // and some padding
+    if (game_message)
+    {
+        DrawText(game_message, starting_x, y_position, font_size, ENEMY_COLOR);
+    }
+    y_position += 25;
+    y_position += 30; // Restof the padding
+    DrawText("--------------------------", starting_x, y_position, font_size, GRAY);
+    y_position += 25;
+    if (action_message)
+    {
+        DrawText(action_message, starting_x, y_position, font_size, YELLOW);
+    }
+}
+
+char *get_player_info(struct StatePacket *state)
+{
+    char *final_players;
+    if (!state)
+    {
+        final_players = calloc(sizeof("NO PLAYERS") + 1, sizeof(char));
+        strcpy(final_players, "NO PLAYERS");
+        return final_players;
+    }
+    else if (state->player_count == 0)
+    {
+        final_players = calloc(sizeof("NO PLAYERS") + 1, sizeof(char));
+        strcpy(final_players, "NO PLAYERS");
+        return final_players;
+    }
+    final_players = calloc(MAX_USERNAME*50, sizeof(char)); // Archaic and very bad appeoach. Memory bomb or idk how to call this.
+    size_t i = 0;
+    char *temp_number = malloc(20); // Also terrifying
+    while (i < state->player_count)
+    {
+        memset(temp_number, '\0', 20); // Don't forget that terrific feeling
+        strcat(final_players, state->players[i].username);
+        strcat(final_players, " (");
+        if (state->players[i].team_id == 0)
+        {
+            strcat(final_players, "Observer");
+        }
+        else
+        {
+            snprintf(temp_number, 20, "%d", state->players[i++].team_id);
+            strcat(final_players, temp_number);
+        }
+        strcat(final_players, ")\n\n");
+        i++;
+    }
+    free(temp_number);
+    return final_players;
 }

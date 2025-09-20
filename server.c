@@ -3,12 +3,15 @@
 #include "graphical/text_formatter.h" // print_failure()
 #include "packets/connection.h"
 #include "packets/shared_packets.h"
+#include "utils/timer.h"
 #include <unistd.h> // sleep()
 #include <string.h> // memset()
 
 #define PORT 12345
 #define MAX_REQUESTS 20
 #define MAX_CLIENTS 10
+#define MINIMUM_PLAYER_COUNT 2
+#define WAIT_UNTIL_NEXT_STAGE 30 // How long to wait for more players in lobby
 
 #ifdef BATTLESHIPS_VERSION
 char *APP_VERSION = BATTLESHIPS_VERSION;
@@ -17,31 +20,38 @@ char *APP_VERSION = "UNDEFINED!";
 #endif
 
 int server_tcp_socket = -1;
-int gameloop = 1, gameloop_iteration = 0, player_id = 1;
+int gameloop = 1, gameloop_iteration = 0, player_id = 1, player_count_changed = 0;
 
 // Settings
 #define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
 #define INVALID_USERNAME_SPACE_AT_END "Username Cannot End With Space!"
 
-struct Player clients[MAX_CLIENTS];
+// Status messages
+#define STATE_MESSAGE_LOBBY "Game in Lobby.\n\nWaiting for players..."
+#define STATE_MESSAGE_SHIP_PLACEMENT "Place your ships!"
+#define STATE_MESSAGE_WAITING_ON_PLAYERS "Waiting on others..."
+
+struct Player clients[MAX_CLIENTS] = {0}; //Initialize to 0 for correct name printing.
 
 
 struct StatePacket live_state; // TODO: REMOVE it is test
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
-    // DEMO BLOCK
+    // TODO: Improve map size configuration.
     live_state.map_width = 50;
     live_state.map_height = 50;
+    live_state.status = 0;
     live_state.object_count = 1;
+    live_state.map_objects = malloc(sizeof(struct MapObject) * 1);
+    live_state.map_objects[0].object_type = 1;
+    live_state.map_objects[0].x = 25;
+    live_state.map_objects[0].y = 25;
+    live_state.map_objects[0].rotation = 0;
+    live_state.map_objects[0].team_id = 0;
     live_state.player_count = 0;
-    live_state.map_objects = calloc(1, sizeof(struct MapObject));
-    live_state.map_objects->object_type = 1; // Base ship
-    live_state.map_objects->team_id = 0;
-    live_state.map_objects->rotation = 1;
-    live_state.map_objects->x = 20;
-    live_state.map_objects->y = 30;
     memset(&clients, 0, sizeof(struct Player) * MAX_CLIENTS);
+
     // Call socket creation
     server_tcp_socket = create_socket();
     if (bind_socket_to_address(server_tcp_socket, PORT) < 0)
@@ -169,10 +179,6 @@ int register_client_username(int socket, char* username, uint8_t* user_id, uint8
     send_generic_packet(socket, &generic_packet);
 
     free(generic_packet.content);
-    generic_packet.packet_type = 3;
-    generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
-    send_generic_packet(socket, &generic_packet);
-    free(generic_packet.content);
     free(client_packet->content);
     free(client_packet);
     return registration_status;
@@ -188,12 +194,22 @@ void get_clients_usernames()
         {
             if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
             {
-                clients[i].status++;
+                if (live_state.status == 0)
+                {
+                    // Game still in lobby.
+                    // TODO: Check if team is configured.
+                    clients[i].status = 2; // Registered
+                }
+                else
+                {
+                    // TODO: Check if team is configured.
+                    clients[i].status = 3; // Observer
+                }
             }
         }
         i++;
     }
-    
+
 }
 
 /// @brief Does client registration and their status updates.
@@ -205,7 +221,7 @@ void register_clients()
     switch (client_socket)
     {
     case -1:
-        print_failure("Failure while accepting connection\n");
+        print_failure("Failure while accepting client connection\n");
         break;
     case -2:
         // printf("No client connections waiting.\n");
@@ -225,8 +241,211 @@ void register_clients()
             print_failure("Impossible failure!\n");
         }
     }
+    // Following function can be included also in different place but is here as related to client registration.
+    // Previous connection will be accepted but user won't be that fast to enter name in one tick
     get_clients_usernames();
     return;
+}
+
+void update_state_with_players()
+{
+    // TODO: optimize if no change then do not update!!!
+    int active_player_count = 0;
+    size_t i = 0, to_i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            active_player_count++;
+        }
+        i++;
+    }
+    if (live_state.players)
+    {
+        free(live_state.players);
+    }
+    // DANGER IF RUN IN PARRALLEL!!!
+    live_state.players = calloc(active_player_count, sizeof(struct Player));
+    player_count_changed = (live_state.player_count != active_player_count) ? 1 : 0;
+    live_state.player_count = active_player_count;
+    i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            live_state.players[to_i].socket_nr = clients[i].socket_nr; // This is not required for each client but only server.
+            live_state.players[to_i].id = clients[i].id;
+            live_state.players[to_i].team_id = clients[i].team_id;
+            live_state.players[to_i].status = clients[i].status;
+            strcpy(live_state.players[to_i++].username, clients[i].username);
+        }
+        i++;
+    }
+}
+
+void update_game_status()
+{
+    // if player count changed, that means it is now either
+    // 1) below the minimum threshold which means the timer is not needed and game state gets set back to lobby
+    // or
+    // 2) we need to reset the timer due to players joining / disconnecting
+    if (player_count_changed && live_state.status == 0)
+    {
+        if (live_state.player_count < MINIMUM_PLAYER_COUNT)
+        {
+            stop_timer();
+        }
+        else
+        {
+            start_or_reset_timer(WAIT_UNTIL_NEXT_STAGE);
+        }
+    }
+    // if player count did not change, don't do anything unless the timer was already running and has finished
+    // in which case game state moves to ship placement
+    else if (live_state.status == 0)
+    {
+        if (timer_has_finished_running())
+        {
+            live_state.status = 1;
+            print_success("Lobby is closing. Players in game: ");
+            printf("%d\n", live_state.player_count);
+        }
+    }
+    return;
+}
+
+char *get_state_message()
+{
+    switch (live_state.status)
+    {
+    case 0:
+        return STATE_MESSAGE_LOBBY;
+    case 1:
+        return STATE_MESSAGE_SHIP_PLACEMENT;
+    case 2:
+        return STATE_MESSAGE_WAITING_ON_PLAYERS;
+    default:
+        return "GAME BROKE!";
+    }
+}
+
+/// @brief Update active and connected clients with game state.
+void send_everyone_state()
+{
+    struct GenericPacket generic_packet;
+    struct MessagePacket message;
+    message.message_type = 3;
+    message.sender_id = 0;
+    char *state_message = get_state_message();
+    message.message = state_message;
+    message.message_length = strlen(state_message);
+    size_t i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status > 1 && clients[i].status < 4)
+        {
+            // TODO: I am not sure what is happening here
+            // Probably need to send each player state based on their team and status HERE
+            generic_packet.packet_type = 3;
+            generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
+            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            {
+                print_warning("WARNING: Client Disconnected ");
+                printf("Socket(%d)\n", clients[i].socket_nr);
+                close_socket(clients[i].socket_nr);
+                clients[i].status = 4;
+            }
+            free(generic_packet.content);
+            generic_packet.packet_type = 2;
+            generic_packet.content = message_packet_serialization(&message, &generic_packet.packet_content_size);
+            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            {
+                print_warning("WARNING: Client Disconnected ");
+                printf("Socket(%d)\n", clients[i].socket_nr);
+                close_socket(clients[i].socket_nr);
+                clients[i].status = 4;
+            }
+            free(generic_packet.content);
+        }
+        i++;
+    }
+}
+
+int process_client_packet(int socket)
+{
+    struct GenericPacket *client_packet = receive_generic_packet(socket);
+    if (client_packet == NULL)
+    {
+        // TODO: Print debug info
+        return 1;
+    }
+    switch (client_packet->packet_type)
+    {
+    case 0:
+        // TODO: HELLO packet process move implementation from top to here?
+        print_failure("Client sent HELLO packet on individual processing. NEED TO MOVE IMPLEMENTATION! Socket: ");
+        printf("%d\n", socket);
+        return 2;
+    case 2:
+        // TODO: MESSAGE packet process
+        print_failure("Not implemented: ");
+        printf("Client sent MESSAGE packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    case 5:
+        // TODO: IPlace packet process
+        // print_failure("Not implemented: ");
+        print_warning("Client IPlace implemented in DEMO mode only!\n");
+        struct IPlacePacket i_place_packet;
+        memcpy(&i_place_packet, client_packet->content, sizeof(struct IPlacePacket));
+        printf("Client placed ship type %d at X:%d Y:%d\n", i_place_packet.object.object_type, i_place_packet.object.x, i_place_packet.object.y);
+        // Now add object to live state.
+        if (live_state.object_count == 0)
+        {
+            live_state.map_objects = malloc(sizeof(struct MapObject) * 1);
+            live_state.object_count = 1;
+        }
+        else
+        {
+            live_state.map_objects = realloc(live_state.map_objects, sizeof(struct MapObject) * (live_state.object_count + 1));
+            live_state.object_count++;
+        }
+        live_state.map_objects[live_state.object_count - 1].object_type = i_place_packet.object.object_type;
+        live_state.map_objects[live_state.object_count - 1].x = i_place_packet.object.x;
+        live_state.map_objects[live_state.object_count - 1].y = i_place_packet.object.y;
+        live_state.map_objects[live_state.object_count - 1].rotation = i_place_packet.object.rotation; // TODO: Get rotation from client.
+        live_state.map_objects[live_state.object_count - 1].team_id = 1; // TODO: Get team from client.
+        live_state.map_objects[live_state.object_count - 1].info = 0;
+        // printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    case 7:
+        // TODO: IGo packet process
+        print_failure("Not implemented: ");
+        printf("Client sent IGo packet on individual processing. Socket: %d\n", socket);
+        return 2;
+    default:
+        // TODO: Implement reporting issue to client if reasonable
+        print_failure("Unknown packet type received from client: ");
+        printf("%d\n", client_packet->packet_type);
+        print_failure("Socket: ");
+        printf("%d\n", socket);
+        return 2;
+    }
+    free(client_packet->content);
+    free(client_packet);
+    return 0;
+}
+
+void process_incoming_packets()
+{
+    size_t i = 0;
+    while (i < MAX_CLIENTS)
+    {
+        if (clients[i].status == 2 && clients[i].socket_nr >= 0)
+        {
+            process_client_packet(clients[i].socket_nr);
+        }
+        i++;
+    }
 }
 
 /// @brief Do all required actions within loop.
@@ -244,6 +463,20 @@ int serverloop()
             printf("Loop iteration: %d\n", gameloop_iteration);
         }
         register_clients();
+        update_state_with_players();
+        update_game_status();
+        send_everyone_state();
+        process_incoming_packets();
+
+        // DEMO: move ship up
+        if (live_state.object_count > 0)
+        {
+            live_state.map_objects[0].y = (live_state.map_objects[0].y + 1);
+            if (live_state.map_objects[0].y >= live_state.map_height - 6)
+            {
+                live_state.map_objects[0].y = 5;
+            }
+        }
 
         // Here is place for other server functionality.
     }
