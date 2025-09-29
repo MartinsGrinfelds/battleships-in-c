@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L   // request POSIX.1-2008 + POSIX.1-2001 extensions. For clock_gettime()
+
 #include "connection.h"
 #include <sys/socket.h>     // socket(), AF_INET, SOCK_STREAM
 #include <netinet/ip.h>     // sockaddr_in struct
@@ -9,6 +11,8 @@
 #include <arpa/inet.h>      // inet_pton()
 #include <fcntl.h>          // F_GETFL, O_NONBLOCK, F_SETFL
 #include <errno.h>          // errno, EWOULDBLOCK, EAGAIN
+#include <time.h>           // clock_gettime(), timespec, CLOCK_MONOTONIC
+#include "../graphical/text_formatter.h" // print_failure(), print_success(), print_warning()
 
 int create_socket()
 {
@@ -110,121 +114,216 @@ int accept_connection(int socket)
     return client_socket;
 }
 
+// Returns current time in milliseconds. Based on MONOTONIC clock (when system was started).
+static inline int64_t now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+// Try to receive exact data with some timeout in milliseconds or fail.
+// Returns:
+//  0 - success
+// -1 - would block on first byte and do_not_wait_first_byte is set
+// -2 - timeout
+// -3 - peer closed connection during read
+// -4 - other recv error (check errno)
+int recv_exact_or_timeout(int fd, void *buf, size_t len, int timeout_ms, uint8_t do_not_wait_first_byte) {
+    uint8_t *p = (uint8_t*)buf;
+    size_t got = 0;
+    int64_t start = now_ms();
+
+    while (got < len) {
+        ssize_t n = recv(fd, p + got, len - got, 0);
+        if (n > 0) {
+            got += (size_t)n;
+            // Got some data.
+            continue;
+        }
+        if (n == 0) {
+            // peer closed during read
+            return -3;
+        }
+        // n < 0
+        if (errno == EINTR)
+        {
+            // I left this as warning to see if actually happens in real world.
+            print_warning("WARNING: recv EINTR, retrying...\n");
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (do_not_wait_first_byte && got == 0) {
+                // We do not want to wait for the first byte.
+                return -1;
+            }
+            if (timeout_ms >= 0 && (now_ms() - start) >= timeout_ms) return -2; // timeout
+            // Else we can do sleep here and try again.
+            continue;
+        }
+        // real error
+        return -4;
+    }
+    return 0;
+}
+
+int handle_low_level_recv_errors(int recv_status)
+{
+    switch (recv_status)
+    {
+    case -2:
+        print_failure("Timeout reached during recv_exact_or_timeout\n");
+        break;
+    case -3:
+        print_failure("Peer closed connection during read\n");
+        break;
+    case -4:
+        print_failure("Other recv failure (check errno)\n");
+        break;
+    default:
+        break;
+    }
+    return recv_status;
+}
+
+// Try to send exact data with some timeout in milliseconds or fail.
+// Returns:
+//  0 - success
+// -2 - timeout
+// -3 - send returned 0 bytes sent (should not happen)
+// -4 - other send error (check errno)
+int send_exact_or_timeout(int fd, const void *buf, size_t len, int timeout_ms) {
+    const uint8_t *p = (const uint8_t*)buf;
+    size_t sent = 0;
+    int64_t start = now_ms();
+
+    while (sent < len) {
+        ssize_t n = send(fd, p + sent, len - sent, 0);
+        if (n > 0) {
+            sent += (size_t)n;
+            // Sent some data.
+            continue;
+        }
+        if (n == 0) {
+            // This should not happen for send.
+            return -3;
+        }
+        // n < 0
+        if (errno == EINTR)
+        {
+            // I left this as warning to see if actually happens in real world.
+            print_warning("WARNING: send EINTR, retrying...\n");
+            continue;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (timeout_ms >= 0 && (now_ms() - start) >= timeout_ms) {
+                print_failure("Timeout reached during send_exact_or_timeout\n");
+                return -2; // timeout
+            }
+            // Else we can do sleep here and try again.
+            continue;
+        }
+        // real error
+        return -4;
+    }
+    return 0;
+}
+
+int handle_low_level_send_errors(int send_status)
+{
+    switch (send_status)
+    {
+    case -2:
+        print_failure("Timeout reached during send_exact_or_timeout\n");
+        break;
+    case -3:
+        print_failure("Send returned 0 bytes sent (should not happen)\n");
+        break;
+    case -4:
+        print_failure("Other send failure (check errno)\n");
+        break;
+    default:
+        break;
+    }
+    return send_status;
+}
+
 struct GenericPacket *receive_generic_packet(int socket)
 {
-    // BUG: May fail due to non-blocking behaviour + poor bandwidth/unknown scenarios
-    // Call free(address) for this one or enjoy memory leak 😍
+    // WARNING: Worst case scenario may take 500ms due to timeouts.
+    int receiving_status = 0;
     struct GenericPacket *received_packet = malloc(sizeof(struct GenericPacket));
-    ssize_t recv_status, to_receive;
-    // printf("Receiving generic packet:\n");
-    // This and all further to_receive sizeof tells recv how buch bytes to receive.
-    // uint32_t sequence_number;     // 4 bytes
-    to_receive = sizeof(received_packet->sequence_number);
-    recv_status = recv(socket, &received_packet->sequence_number, to_receive, 0);
-    if (recv_status <= 0)
+    receiving_status = recv_exact_or_timeout(socket, &received_packet->sequence_number, sizeof(received_packet->sequence_number), 100, 1);
+    if (handle_low_level_recv_errors(receiving_status))
     {
-        // printf("Errno is: %d\n", errno);
-        if (errno == EWOULDBLOCK || errno == EAGAIN)
-        {
-            free(received_packet);
-            // printf("No incomming data. Continuing...\n");
-            return NULL;
-        }
-        // else Leaving it here probably necessary.
-        // {
-        //     perror("Error: ");
-        //     return NULL;
-        // }
+        free(received_packet);
+        return NULL;
     }
-    if (recv_status != to_receive)
+    receiving_status = recv_exact_or_timeout(socket, &received_packet->packet_content_size, sizeof(received_packet->packet_content_size), 100, 0);
+    if (handle_low_level_recv_errors(receiving_status))
     {
-        printf("Failure to get packet sequence number! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
+        free(received_packet);
+        return NULL;
     }
-    // uint32_t packet_content_size; // 4 bytes
-    to_receive = sizeof(received_packet->packet_content_size);
-    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
-    recv_status = recv(socket, &received_packet->packet_content_size, to_receive, 0);
-    if (recv_status != to_receive)
+    receiving_status = recv_exact_or_timeout(socket, &received_packet->packet_type, sizeof(received_packet->packet_type), 100, 0);
+    if (handle_low_level_recv_errors(receiving_status))
     {
-        printf("Failure to get packet content size! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
+        free(received_packet);
+        return NULL;
     }
-    // uint8_t packet_type;          // 1 byte
-    to_receive = sizeof(received_packet->packet_type);
-    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
-    recv_status = recv(socket, &received_packet->packet_type, to_receive, 0);
-    if (recv_status != to_receive)
+    receiving_status = recv_exact_or_timeout(socket, &received_packet->checksum, sizeof(received_packet->checksum), 100, 0);
+    if (handle_low_level_recv_errors(receiving_status))
     {
-        printf("Failure to get packet type! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
+        free(received_packet);
+        return NULL;
     }
-    // uint8_t checksum;             // 1 byte
-    to_receive = sizeof(received_packet->checksum);
-    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
-    recv_status = recv(socket, &received_packet->checksum, to_receive, 0);
-    if (recv_status != to_receive)
-    {
-        printf("Failure to get packet content size! Received: %ld bytes Expected: %ld bytes\n", recv_status, to_receive);
-    }
-    // char *content; // Content is saved somewhere on memory
-    to_receive = received_packet->packet_content_size;
+    size_t to_receive = received_packet->packet_content_size;
     if (to_receive > MAX_CONTENT_SIZE)
     {
-        printf("Received content size definition seems too big: %ld bytes Max allowed is: %d bytes\n", to_receive, MAX_CONTENT_SIZE);
-        received_packet->packet_content_size = 0;
-        return received_packet;
+        print_failure("Received content size definition seems too large: ");
+        printf("Received %ld bytes yet Max allowed is %d bytes\n", to_receive, MAX_CONTENT_SIZE);
+        printf("^Packet^ info: SeqNr: %d Type: %d Checksum: %d\n", received_packet->sequence_number, received_packet->packet_type, received_packet->checksum);
+        free(received_packet);
+        return NULL;
     }
-    // Call free(address) for this one or enjoy memory leak 😍
     received_packet->content = malloc(to_receive);
-    // DANGER! It is possible that multiple recv functions in order to receive one packet contents can fail if non-blocking and poor bandwidth.
-    recv_status = recv(socket, received_packet->content, to_receive, 0);
-    if (recv_status != to_receive)
+    receiving_status = recv_exact_or_timeout(socket, received_packet->content, to_receive, 100, 0);
+    if (handle_low_level_recv_errors(receiving_status))
     {
-        printf("Received content size seems off. Received: %ld bytes Expected: %ld bytes\n", to_receive, recv_status);
+        free(received_packet->content);
+        free(received_packet);
+        return NULL;
     }
     return received_packet;
 }
 
 int send_generic_packet(int socket, struct GenericPacket *packet)
 {
-    ssize_t send_status, to_send;
-    // uint32_t sequence_number;     // 4 bytes
-    to_send = sizeof(packet->sequence_number);
-    send_status = send(socket, &packet->sequence_number, to_send, 0);
-    if (send_status != to_send)
+    // WARNING: Worst case scenario may take 500ms due to timeouts.
+    int sending_status = 0;
+    sending_status = send_exact_or_timeout(socket, &packet->sequence_number, sizeof(packet->sequence_number), 100);
+    if (handle_low_level_send_errors(sending_status))
     {
-        printf("Failure to send packet sequence number! Sent: %ld bytes Had to send: %ld bytes\n", send_status, to_send);
-        return 1;
+        return sending_status;
     }
-    // uint32_t packet_content_size; // 4 bytes
-    to_send = sizeof(packet->packet_content_size);
-    send_status = send(socket, &packet->packet_content_size, to_send, 0);
-    if (send_status != to_send)
+    sending_status = send_exact_or_timeout(socket, &packet->packet_content_size, sizeof(packet->packet_content_size), 100);
+    if (handle_low_level_send_errors(sending_status))
     {
-        printf("Failure to send packet content size! Sent: %ld bytes Had to send: %ld bytes\n", send_status, to_send);
-        return 2;
+        return sending_status;
     }
-    // uint8_t packet_type;          // 1 byte
-    to_send = sizeof(packet->packet_type);
-    send_status = send(socket, &packet->packet_type, to_send, 0);
-    if (send_status != to_send)
+    sending_status = send_exact_or_timeout(socket, &packet->packet_type, sizeof(packet->packet_type), 100);
+    if (handle_low_level_send_errors(sending_status))
     {
-        printf("Failure to send packet type! Sent: %ld bytes Had to send: %ld bytes\n", send_status, to_send);
-        return 3;
+        return sending_status;
     }
-    // uint8_t checksum;             // 1 byte
-    to_send = sizeof(packet->checksum);
-    send_status = send(socket, &packet->checksum, to_send, 0);
-    if (send_status != to_send)
+    sending_status = send_exact_or_timeout(socket, &packet->checksum, sizeof(packet->checksum), 100);
+    if (handle_low_level_send_errors(sending_status))
     {
-        printf("Failure to send packet sequence number! Sent: %ld bytes Had to send: %ld bytes\n", send_status, to_send);
-        return 4;
+        return sending_status;
     }
-    // char *content; // Content is saved somewhere on memory
-    to_send = packet->packet_content_size;
-    send_status = send(socket, packet->content, to_send, 0);
-    if (send_status != to_send)
+    sending_status = send_exact_or_timeout(socket, packet->content, packet->packet_content_size, 100);
+    if (handle_low_level_send_errors(sending_status))
     {
-        printf("Sent content seems off: %ld bytes Expected: %ld bytes\n", to_send, send_status);
-        return 5;
+        return sending_status;
     }
     return 0;
 }
