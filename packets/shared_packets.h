@@ -34,6 +34,7 @@ struct MapObject
     uint8_t y;
     uint8_t rotation;
     uint8_t team_id;
+    uint8_t player_id;
     uint8_t info;
 };
 
@@ -121,6 +122,18 @@ struct IPlacePacket
     struct MapObject object;
 };
 
+struct YouGoPacket
+{
+    uint8_t player_id;
+};
+struct IGoPacket
+{
+    uint8_t player_id;
+    uint8_t action;
+    uint8_t x;
+    uint8_t y;
+};
+
 
 
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
@@ -199,3 +212,25 @@ char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_si
 /// @param serialized_packet Pointer to serialized IPlace packet.
 /// @param deserialized_packet Pointer to IPlace packet where to put data in.
 void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet);
+
+/// @brief Takes YouGo packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to YouGo packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *you_go_packet_serialization(struct YouGoPacket *packet, size_t *final_size);
+
+/// @brief Takes serialized YouGo packet and deserializes it.
+/// @param serialized_packet Pointer to serialized YouGo packet.
+/// @param deserialized_packet Pointer to YouGo packet where to put data in.
+void you_go_packet_deserialization(char *serialized_packet, struct YouGoPacket *deserialized_packet);
+
+/// @brief Takes IGo packet and makes one long chunk of data so it can be used within GenericPacket.
+/// @param packet Pointer to IGo packet.
+/// @param final_size Pointer to serialization size after serialization.
+/// @return Pointer to a serialized packet. FREE AFTER USE!!!
+char *i_go_packet_serialization(struct IGoPacket *packet, size_t *final_size);
+
+/// @brief Takes serialized IGo packet and deserializes it.
+/// @param serialized_packet Pointer to serialized IGo packet.
+/// @param deserialized_packet Pointer to IGo packet where to put data in.
+void i_go_packet_deserialization(char *serialized_packet, struct IGoPacket *deserialized_packet);

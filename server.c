@@ -12,6 +12,7 @@
 #define MAX_CLIENTS 10
 #define MINIMUM_PLAYER_COUNT 2
 #define WAIT_UNTIL_NEXT_STAGE 30 // How long to wait for more players in lobby
+#define NUM_SHIP_TYPES 5
 
 #ifdef BATTLESHIPS_VERSION
 char *APP_VERSION = BATTLESHIPS_VERSION;
@@ -35,6 +36,49 @@ struct Player clients[MAX_CLIENTS] = {0}; //Initialize to 0 for correct name pri
 
 
 struct StatePacket live_state; // TODO: REMOVE it is test
+
+/// @brief Checks if a single player has placed all their ships.
+/// @param player_id The ID of the player to check.
+/// @return true if the player has placed all ships, false otherwise.
+int player_has_placed_all_ships(uint8_t player_id)
+{
+    if (!live_state.map_objects || live_state.object_count == 0)
+    {
+        return false;
+    }
+
+    int ship_types_found[NUM_SHIP_TYPES] = {0};
+    int found_count = 0;
+
+    for (int i = 0; i < live_state.object_count; i++)
+    {
+        struct MapObject *obj = &live_state.map_objects[i];
+        if (obj->player_id == player_id && obj->object_type >= 1 && obj->object_type <= 5) // need to get rid of these magic numbers at some point somehow
+        {
+            if (!ship_types_found[obj->object_type - 1] == 1)
+            {
+                ship_types_found[obj->object_type - 1] = 1;
+                found_count++;
+            }
+        }
+    }
+    return (found_count == NUM_SHIP_TYPES);
+}
+
+/// @brief Checks if all active players have placed all their ships.
+/// @return true if all players have placed all ships, false otherwise.
+int all_players_placed_ships()
+{
+    for (int i = 0; i < live_state.player_count; i++)
+    {
+        if (!player_has_placed_all_ships(live_state.players[i].id))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 /// @brief Does server startup actions such as socket creation, binding, listening.
 void startup_server()
 {
@@ -311,6 +355,14 @@ void update_game_status()
             printf("%d\n", live_state.player_count);
         }
     }
+    else if (live_state.status == 1)
+    {
+        if (all_players_placed_ships())
+        {
+            live_state.status = 2; // start main game
+            print_success("All players have placed their ships. Starting game!\n");
+        }
+    }
     return;
 }
 
@@ -371,6 +423,18 @@ void send_everyone_state()
     }
 }
 
+int get_player_id_from_socket(int socket)
+{
+    for (size_t i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i].socket_nr == socket)
+        {
+            return clients[i].id;
+        }
+    }
+    return -1;
+}
+
 int process_client_packet(int socket)
 {
     struct GenericPacket *client_packet = receive_generic_packet(socket);
@@ -414,6 +478,7 @@ int process_client_packet(int socket)
         live_state.map_objects[live_state.object_count - 1].y = i_place_packet.object.y;
         live_state.map_objects[live_state.object_count - 1].rotation = i_place_packet.object.rotation; // TODO: Get rotation from client.
         live_state.map_objects[live_state.object_count - 1].team_id = 1; // TODO: Get team from client.
+        live_state.map_objects[live_state.object_count - 1].player_id = get_player_id_from_socket(socket);
         live_state.map_objects[live_state.object_count - 1].info = 0;
         // printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
         return 2;
