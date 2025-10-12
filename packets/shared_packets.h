@@ -34,6 +34,7 @@ struct MapObject
     uint8_t y;
     uint8_t rotation;
     uint8_t team_id;
+    uint8_t player_id;
     uint8_t info;
 };
 
