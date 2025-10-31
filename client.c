@@ -44,7 +44,7 @@ uint8_t team_id = 0;
 uint8_t player_id = 0;
 char *user_name;
 char server_message[50]; // TODO: fix me probably making dynamic
-uint8_t ship_to_place = 1; // 0 means no ship to place
+uint8_t ship_to_place = 0; // 0 means no ship to place
 int placed_ship_index = -1, placed_ship_rotation = 0; // -1 means no ship placed yet or invalid
 
 // Messages

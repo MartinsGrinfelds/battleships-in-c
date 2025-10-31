@@ -11,8 +11,8 @@
 #define MAX_REQUESTS 20
 #define MAX_CLIENTS 10
 #define MINIMUM_PLAYER_COUNT 2
-#define WAIT_UNTIL_NEXT_STAGE 30 // How long to wait for more players in lobby
-#define NUM_SHIP_TYPES 5
+#define WAIT_UNTIL_NEXT_STAGE 15 // How long to wait for more players in lobby
+#define NUM_SHIP_TYPES 1
 
 #ifdef BATTLESHIPS_VERSION
 char *APP_VERSION = BATTLESHIPS_VERSION;
@@ -32,8 +32,9 @@ int gameloop = 1, gameloop_iteration = 0, player_id = 1, player_count_changed = 
 #define STATE_MESSAGE_SHIP_PLACEMENT "Place your ships!"
 #define STATE_MESSAGE_WAITING_ON_PLAYERS "Waiting on others..."
 
-struct Player clients[MAX_CLIENTS] = {0}; //Initialize to 0 for correct name printing.
+static bool waiting_for_placement = false;
 
+struct Player clients[MAX_CLIENTS] = {0}; // Initialize to 0 for correct name printing.
 
 struct StatePacket live_state; // TODO: REMOVE it is test
 
@@ -55,7 +56,7 @@ int player_has_placed_all_ships(uint8_t player_id)
         struct MapObject *obj = &live_state.map_objects[i];
         if (obj->player_id == player_id && obj->object_type >= 1 && obj->object_type <= 5) // need to get rid of these magic numbers at some point somehow
         {
-            if (!ship_types_found[obj->object_type - 1] == 1)
+            if ((!ship_types_found[obj->object_type - 1]) == 1)
             {
                 ship_types_found[obj->object_type - 1] = 1;
                 found_count++;
@@ -157,7 +158,7 @@ int username_exists(char *username)
     return 0;
 }
 
-char *username_invalid(char* username)
+char *username_invalid(char *username)
 {
     if (username[strlen(username) - 1] == ' ')
     {
@@ -170,7 +171,7 @@ char *username_invalid(char* username)
 /// @param username Where to save received username.
 /// @param user_id Where to save user ID.
 /// @return 1 if succesful registration. 0 waiting on client.
-int register_client_username(int socket, char* username, uint8_t* user_id, uint8_t* team_id)
+int register_client_username(int socket, char *username, uint8_t *user_id, uint8_t *team_id)
 {
 
     struct GenericPacket *client_packet = receive_generic_packet(socket);
@@ -179,7 +180,7 @@ int register_client_username(int socket, char* username, uint8_t* user_id, uint8
         // printf("Waiting on client %d\n", socket);
         return 0;
     }
-    
+
     // if (client_packet->packet_type != 0)
     // {
     //     // TODO: Send ACK with player_id=0.
@@ -236,7 +237,7 @@ void get_clients_usernames()
     {
         if (clients[i].status == 1 && clients[i].socket_nr >= 0)
         {
-            if(register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
+            if (register_client_username(clients[i].socket_nr, clients[i].username, &clients[i].id, &clients[i].team_id))
             {
                 if (live_state.status == 0)
                 {
@@ -253,7 +254,6 @@ void get_clients_usernames()
         }
         i++;
     }
-
 }
 
 /// @brief Does client registration and their status updates.
@@ -357,10 +357,10 @@ void update_game_status()
     }
     else if (live_state.status == 1)
     {
-        if (all_players_placed_ships())
+        if (handle_ship_placement())
         {
-            live_state.status = 2; // start main game
-            print_success("All players have placed their ships. Starting game!\n");
+            live_state.status = 2;
+            print_success("All players have placed their ships. Game is starting!\n");
         }
     }
     return;
@@ -400,7 +400,7 @@ void send_everyone_state()
             // Probably need to send each player state based on their team and status HERE
             generic_packet.packet_type = 3;
             generic_packet.content = state_packet_serialization(&live_state, &generic_packet.packet_content_size);
-            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            if (send_generic_packet(clients[i].socket_nr, &generic_packet))
             {
                 print_warning("WARNING: Client Disconnected ");
                 printf("Socket(%d)\n", clients[i].socket_nr);
@@ -410,7 +410,7 @@ void send_everyone_state()
             free(generic_packet.content);
             generic_packet.packet_type = 2;
             generic_packet.content = message_packet_serialization(&message, &generic_packet.packet_content_size);
-            if(send_generic_packet(clients[i].socket_nr, &generic_packet))
+            if (send_generic_packet(clients[i].socket_nr, &generic_packet))
             {
                 print_warning("WARNING: Client Disconnected ");
                 printf("Socket(%d)\n", clients[i].socket_nr);
@@ -456,12 +456,11 @@ int process_client_packet(int socket)
         printf("Client sent MESSAGE packet on individual processing. Socket: %d\n", socket);
         return 2;
     case 5:
-        // TODO: IPlace packet process
-        // print_failure("Not implemented: ");
-        print_warning("Client IPlace implemented in DEMO mode only!\n");
+        // IPlace packet process
         struct IPlacePacket i_place_packet;
         memcpy(&i_place_packet, client_packet->content, sizeof(struct IPlacePacket));
         printf("Client placed ship type %d at X:%d Y:%d\n", i_place_packet.object.object_type, i_place_packet.object.x, i_place_packet.object.y);
+
         // Now add object to live state.
         if (live_state.object_count == 0)
         {
@@ -476,11 +475,14 @@ int process_client_packet(int socket)
         live_state.map_objects[live_state.object_count - 1].object_type = i_place_packet.object.object_type;
         live_state.map_objects[live_state.object_count - 1].x = i_place_packet.object.x;
         live_state.map_objects[live_state.object_count - 1].y = i_place_packet.object.y;
-        live_state.map_objects[live_state.object_count - 1].rotation = i_place_packet.object.rotation; // TODO: Get rotation from client.
+        live_state.map_objects[live_state.object_count - 1].rotation = i_place_packet.object.rotation;
         live_state.map_objects[live_state.object_count - 1].team_id = 1; // TODO: Get team from client.
         live_state.map_objects[live_state.object_count - 1].player_id = get_player_id_from_socket(socket);
         live_state.map_objects[live_state.object_count - 1].info = 0;
-        // printf("Client sent IPlace packet on individual processing. Socket: %d\n", socket);
+
+        // Signal that the placement has been received
+        waiting_for_placement = false;
+
         return 2;
     case 7:
         // TODO: IGo packet process
@@ -522,7 +524,7 @@ int serverloop()
     {
         gameloop_iteration++;
         sleep(1);
-        if(gameloop_iteration%100 == 0)
+        if (gameloop_iteration % 100 == 0)
         {
             // Info about 100 iterations passed.
             printf("Loop iteration: %d\n", gameloop_iteration);
@@ -563,6 +565,80 @@ void server_cleanup()
         i++;
     }
     printf("Cleanup end!\n");
+}
+
+/// @brief Manages the entire ship placement phase in a turn-based manner.
+/// @return Returns 1 if the placement phase is complete, 0 otherwise.
+int handle_ship_placement()
+{
+    static int placement_turn_player_index = 0;
+    static bool placement_initialized = false;
+
+    // One-time initialization for the placement phase
+    if (!placement_initialized)
+    {
+        printf("Initializing ship placement phase.\n");
+        placement_turn_player_index = 0;
+        waiting_for_placement = false;
+        placement_initialized = true;
+    }
+
+    // If all players have placed their ships, report completion.
+    if (all_players_placed_ships())
+    {
+        placement_initialized = false; // Reset for a potential new game
+        print_success("All players have placed their ships. Starting game!\n");
+        return 1; // Signal completion
+    }
+
+    // If we are waiting for a player to place a ship, do nothing in this tick.
+    if (waiting_for_placement)
+    {
+        printf("Waiting for placement...\n");
+        return 0;
+    }
+
+    // Find the next active player who needs to place a ship and send them the packet
+    int initial_player_index = placement_turn_player_index;
+    do
+    {
+        struct Player *player = &clients[placement_turn_player_index];
+
+        // Check if the player is active and has not yet placed all their ships
+        if (player->status == 2 && !player_has_placed_all_ships(player->id))
+        {
+            struct YouPlacePacket you_place_packet;
+            you_place_packet.object_type = 1; // Only one ship type for now
+
+            struct GenericPacket generic_packet;
+            generic_packet.packet_type = 4;
+            generic_packet.packet_content_size = sizeof(struct YouPlacePacket);
+            generic_packet.content = (char *)&you_place_packet;
+            generic_packet.checksum = 0;
+
+            if (send_generic_packet(player->socket_nr, &generic_packet) == 0)
+            {
+                printf("Sent YouPlace to player %d (%s)\n", player->id, player->username);
+                waiting_for_placement = true; // Wait for the IPlace response
+            }
+            else
+            {
+                // Handle disconnection
+                printf("Player disconnected during ship placement: Socket(%d)\n", player->socket_nr);
+                close_socket(player->socket_nr);
+                player->status = 4; // Mark as disconnected
+            }
+            printf("Still in progress.\n");
+            return 0; // Still in progress
+        }
+
+        // Move to the next player and loop
+        placement_turn_player_index = (placement_turn_player_index + 1) % MAX_CLIENTS;
+        printf("placement_turn_player_index: %d\n", placement_turn_player_index);
+    } while (placement_turn_player_index != initial_player_index);
+
+    printf("Still in progress, end.\n");
+    return 0; // Still in progress
 }
 
 int main()
