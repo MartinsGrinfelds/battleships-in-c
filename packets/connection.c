@@ -12,6 +12,7 @@
 #include <fcntl.h>          // F_GETFL, O_NONBLOCK, F_SETFL
 #include <errno.h>          // errno, EWOULDBLOCK, EAGAIN
 #include <time.h>           // clock_gettime(), timespec, CLOCK_MONOTONIC
+#include <signal.h>         // signal(), SIGPIPE
 #include "../graphical/text_formatter.h" // print_failure(), print_success(), print_warning()
 
 int create_socket()
@@ -23,6 +24,8 @@ int create_socket()
         perror("Error: ");
         return tcp_socket;
     }
+    // Prevent SIGPIPE from killing the process when writing to closed sockets
+    signal(SIGPIPE, SIG_IGN);
     printf("Socket with ID %d created!\n", tcp_socket);
     return tcp_socket;
 }
@@ -197,7 +200,7 @@ int send_exact_or_timeout(int fd, const void *buf, size_t len, int timeout_ms) {
     int64_t start = now_ms();
 
     while (sent < len) {
-        ssize_t n = send(fd, p + sent, len - sent, 0);
+        ssize_t n = send(fd, p + sent, len - sent, MSG_NOSIGNAL);
         if (n > 0) {
             sent += (size_t)n;
             // Sent some data.

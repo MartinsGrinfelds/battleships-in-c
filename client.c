@@ -46,6 +46,7 @@ char *user_name;
 char server_message[50]; // TODO: fix me probably making dynamic
 uint8_t ship_to_place = 0; // 0 means no ship to place
 int placed_ship_index = -1, placed_ship_rotation = 0; // -1 means no ship placed yet or invalid
+static bool is_my_turn = false;
 
 // Messages
 #define SHIP_PLACEMENT_INSTRUCTIONS "To place ships\n\nClick on square\n\nPress R to rotate\n\nPress Enter to confirm"
@@ -318,14 +319,32 @@ int process_server_packet()
         ship_to_place = you_place_packet.object_type;
         break;
     case 6:
-        // TODO: YouGo packet received
-        print_failure("Not implemented: ");
-        printf("Client received YouGo packet from server.\n");
+        // YouGo packet received — server notifies this client it's their turn
+        {
+            struct YouGoPacket yg;
+            you_go_packet_deserialization(server_packet->content, &yg);
+            printf("Client received YouGo packet from server. player_id=%d\n", yg.player_id);
+            if (yg.player_id == player_id)
+            {
+                is_my_turn = true;
+                printf("It's your turn (demo). Right-click to act.\n");
+            }
+            else
+            {
+                is_my_turn = false;
+            }
+        }
         break;
     case 8:
-        // TODO: EndGame packet received
-        print_failure("Not implemented: ");
-        printf("Client received EndGame packet from server.\n");
+        // EndGame packet received
+        {
+            struct EndGamePacket eg;
+            endgame_packet_deserialization(server_packet->content, &eg);
+            printf("Client received EndGame packet. winner=%d message=%s\n", eg.winner_id, eg.message ? eg.message : "");
+            if (eg.message) free(eg.message);
+            // Ensure client does not think it's still their turn
+            is_my_turn = false;
+        }
         break;
     default:
         print_warning("BUG (report to developers)!\n");
@@ -359,6 +378,27 @@ void clientloop()
             }
             show_chat_messages(&messages);
             place_ship(ship_to_place);
+            // Demo: send IGo (packet type 7) on right-click when it's this client's turn
+            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+            {
+                if (is_my_turn && connection_active)
+                {
+                    struct IGoPacket igo;
+                    igo.player_id = player_id;
+                    igo.action = 1;
+                    igo.x = 0;
+                    igo.y = 0;
+
+                    struct GenericPacket gp;
+                    gp.packet_type = 7;
+                    gp.packet_content_size = sizeof(struct IGoPacket);
+                    gp.content = (char *)&igo;
+                    gp.checksum = 0;
+                    send_generic_packet(client_tcp_socket, &gp);
+                    printf("Sent IGo (demo) to server\n");
+                    is_my_turn = false;
+                }
+            }
         EndDrawing();
     }
 }

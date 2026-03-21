@@ -23,6 +23,18 @@ char *APP_VERSION = "UNDEFINED!";
 int server_tcp_socket = -1;
 int gameloop = 1, gameloop_iteration = 0, player_id = 1, player_count_changed = 0;
 
+// Demo turn-manager settings (minimal, non-invasive)
+#define DEMO_ACTIONS_CAP 10
+#define ACTION_TIMEOUT_SECONDS 15
+
+static int turn_order[MAX_CLIENTS];
+static int turn_order_len = 0;     // number of entries in turn_order
+static int active_turn_pos = -1;   // index into turn_order (-1 means none)
+typedef enum { TURN_INACTIVE = 0, TURN_AWAITING_ACTION = 1 } TurnState;
+static TurnState turn_state = TURN_INACTIVE;
+static int turn_timeout_remaining = 0; // seconds remaining for current turn
+static int demo_action_count = 0;       // total accepted demo actions
+
 // Settings
 #define DUPLICATE_USERNAMES "Someone has Taken This Username. Try Another one."
 #define INVALID_USERNAME_SPACE_AT_END "Username Cannot End With Space!"
@@ -485,10 +497,43 @@ int process_client_packet(int socket)
 
         return 2;
     case 7:
-        // TODO: IGo packet process
-        print_failure("Not implemented: ");
-        printf("Client sent IGo packet on individual processing. Socket: %d\n", socket);
+    {
+        // IGo packet process (demo): accept only from active player
+        struct IGoPacket i_go_packet;
+        memcpy(&i_go_packet, client_packet->content, sizeof(struct IGoPacket));
+        int sender_id = get_player_id_from_socket(socket);
+
+        int active_client_slot = -1;
+        if (active_turn_pos >= 0 && active_turn_pos < turn_order_len)
+        {
+            active_client_slot = turn_order[active_turn_pos];
+        }
+
+        if (sender_id < 0)
+        {
+            printf("IGo: unknown sender socket %d\n", socket);
+        }
+        else if (active_client_slot == -1 || clients[active_client_slot].id != sender_id)
+        {
+            printf("IGo from non-active player id=%d (socket %d) ignored\n", sender_id, socket);
+        }
+        else if (turn_state != TURN_AWAITING_ACTION)
+        {
+            printf("IGo received but server not awaiting action.\n");
+        }
+        else
+        {
+            printf("Demo action received from player id=%d (slot %d)\n", sender_id, active_client_slot);
+            // MVP: accept the action, increment demo action count, end turn
+            demo_action_count++;
+            turn_state = TURN_INACTIVE;
+            turn_timeout_remaining = 0;
+        }
+
+        if (client_packet->content) free(client_packet->content);
+        free(client_packet);
         return 2;
+    }
     default:
         // TODO: Implement reporting issue to client if reasonable
         print_failure("Unknown packet type received from client: ");
@@ -515,6 +560,154 @@ void process_incoming_packets()
     }
 }
 
+// Rebuild the turn order from currently active clients (status == 2).
+void rebuild_turn_order(void)
+{
+    turn_order_len = 0;
+    for (int i = 0; i < MAX_CLIENTS && turn_order_len < MAX_CLIENTS; ++i)
+    {
+        if (clients[i].status == 2)
+        {
+            turn_order[turn_order_len++] = i;
+        }
+    }
+    if (turn_order_len == 0)
+    {
+        active_turn_pos = -1;
+        turn_state = TURN_INACTIVE;
+    }
+    if (active_turn_pos >= turn_order_len) active_turn_pos = -1;
+    // Log rebuilt turn order
+    printf("Rebuilt turn order: %d players\n", turn_order_len);
+    if (turn_order_len > 0)
+    {
+        printf("Turn slots: ");
+        for (int j = 0; j < turn_order_len; ++j)
+        {
+            int slot = turn_order[j];
+            if (slot >= 0 && slot < MAX_CLIENTS)
+            {
+                printf("[slot %d -> id=%d name=%s] ", slot, clients[slot].id, clients[slot].username);
+            }
+        }
+        printf("\n");
+    }
+}
+
+// Send YouGo packet (packet type 6) to client at clients[client_index].
+void send_yougo_to_client_index(int client_index)
+{
+    if (client_index < 0 || client_index >= MAX_CLIENTS) return;
+    struct Player *p = &clients[client_index];
+    if (p->status != 2) return;
+
+    struct YouGoPacket you_go;
+    you_go.player_id = p->id;
+
+    struct GenericPacket gp;
+    gp.packet_type = 6; // YouGo
+    gp.packet_content_size = sizeof(struct YouGoPacket);
+    gp.content = (char *)&you_go;
+    gp.checksum = 0;
+
+    if (send_generic_packet(p->socket_nr, &gp) == 0)
+    {
+        printf("Sent YouGo to player %d (%s)\n", p->id, p->username);
+        turn_state = TURN_AWAITING_ACTION;
+        turn_timeout_remaining = ACTION_TIMEOUT_SECONDS;
+    }
+    else
+    {
+        printf("Player disconnected while sending YouGo: Socket(%d)\n", p->socket_nr);
+        close_socket(p->socket_nr);
+        p->status = 4;
+        rebuild_turn_order();
+    }
+}
+
+// Per-tick turn manager for demo: init, send YouGo, handle timeout/advance.
+void turn_manager_tick(void)
+{
+    if (demo_action_count >= DEMO_ACTIONS_CAP)
+    {
+        // Broadcast end of demo and reset to lobby
+        // Implemented in demo_finish()
+        extern void demo_finish(void);
+        demo_finish();
+        return;
+    }
+
+    if (turn_order_len < 2)
+    {
+        rebuild_turn_order();
+        if (turn_order_len < 2) return; // need 2 players for demo
+    }
+
+    if (turn_state == TURN_INACTIVE)
+    {
+        if (active_turn_pos == -1) active_turn_pos = 0;
+        else active_turn_pos = (active_turn_pos + 1) % turn_order_len;
+        int client_idx = turn_order[active_turn_pos];
+        printf("Turn manager: Starting turn for player id=%d (client slot %d)\n", clients[client_idx].id, client_idx);
+        send_yougo_to_client_index(client_idx);
+        return;
+    }
+
+    if (turn_state == TURN_AWAITING_ACTION)
+    {
+        if (turn_timeout_remaining > 0)
+        {
+            turn_timeout_remaining--;
+            if (turn_timeout_remaining <= 0)
+            {
+                int client_idx = turn_order[active_turn_pos];
+                printf("Turn timed out for player id=%d (slot %d). Skipping.\n", clients[client_idx].id, client_idx);
+                demo_action_count++;
+                turn_state = TURN_INACTIVE; // next tick will advance
+            }
+        }
+    }
+}
+
+// Broadcast EndGame to all active players, reset demo state and return to lobby.
+void demo_finish(void)
+{
+    printf("Demo finished after %d actions. Broadcasting EndGame.\n", demo_action_count);
+    struct EndGamePacket eg;
+    eg.winner_id = 0;
+    char *msg = "Demo finished";
+    eg.message_length = (uint8_t)strlen(msg);
+    eg.message = msg;
+
+    struct GenericPacket gp;
+    gp.packet_type = 8; // EndGame
+    gp.content = endgame_packet_serialization(&eg, &gp.packet_content_size);
+    gp.checksum = 0;
+
+    for (int i = 0; i < MAX_CLIENTS; ++i)
+    {
+        if (clients[i].status == 2 && clients[i].socket_nr >= 0)
+        {
+            if (send_generic_packet(clients[i].socket_nr, &gp))
+            {
+                print_warning("WARNING: Client Disconnected ");
+                printf("Socket(%d)\n", clients[i].socket_nr);
+                close_socket(clients[i].socket_nr);
+                clients[i].status = 4;
+            }
+        }
+    }
+    free(gp.content);
+
+    // Reset demo state and return to lobby
+    demo_action_count = 0;
+    turn_state = TURN_INACTIVE;
+    active_turn_pos = -1;
+    rebuild_turn_order();
+    live_state.status = 0; // Back to lobby
+    print_success("Demo ended; returning to lobby.\n");
+}
+
 /// @brief Do all required actions within loop.
 /// @return
 int serverloop()
@@ -534,6 +727,12 @@ int serverloop()
         update_game_status();
         send_everyone_state();
         process_incoming_packets();
+
+        // Turn manager tick for demo two-player flow
+        if (live_state.status == 2)
+        {
+            turn_manager_tick();
+        }
 
         // DEMO: move ship up
         if (live_state.object_count > 0)

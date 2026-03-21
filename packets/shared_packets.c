@@ -305,3 +305,72 @@ void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket
     read_pointer += sizeof(struct MapObject);
     return;
 }
+
+char *you_go_packet_serialization(struct YouGoPacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->player_id);
+    char *serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    *filler_pointer = packet->player_id;
+    return serialized_packet;
+}
+
+void you_go_packet_deserialization(char *serialized_packet, struct YouGoPacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+    deserialized_packet->player_id = *read_pointer++;
+    return;
+}
+
+char *i_go_packet_serialization(struct IGoPacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->player_id) + sizeof(packet->action) + sizeof(packet->x) + sizeof(packet->y);
+    char *serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    *filler_pointer++ = packet->player_id;
+    *filler_pointer++ = packet->action;
+    *filler_pointer++ = packet->x;
+    *filler_pointer++ = packet->y;
+    return serialized_packet;
+}
+
+void i_go_packet_deserialization(char *serialized_packet, struct IGoPacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+    deserialized_packet->player_id = *read_pointer++;
+    deserialized_packet->action = *read_pointer++;
+    deserialized_packet->x = *read_pointer++;
+    deserialized_packet->y = *read_pointer++;
+    return;
+}
+
+char *endgame_packet_serialization(struct EndGamePacket *packet, size_t *final_size)
+{
+    *final_size = sizeof(packet->winner_id) + sizeof(packet->message_length) + packet->message_length;
+    char *serialized_packet = malloc(*final_size);
+    char *filler_pointer = serialized_packet;
+    *filler_pointer++ = packet->winner_id;
+    *filler_pointer++ = packet->message_length;
+    char *msg_ptr = packet->message;
+    while ((size_t)filler_pointer - (size_t)serialized_packet < *final_size)
+    {
+        *filler_pointer++ = *msg_ptr++;
+    }
+    return serialized_packet;
+}
+
+void endgame_packet_deserialization(char *serialized_packet, struct EndGamePacket *deserialized_packet)
+{
+    char *read_pointer = serialized_packet;
+    deserialized_packet->winner_id = *read_pointer++;
+    deserialized_packet->message_length = *read_pointer++;
+    deserialized_packet->message = malloc(deserialized_packet->message_length + 1);
+    char *write_pointer = deserialized_packet->message;
+    char *msg_start = read_pointer;
+    while (read_pointer - msg_start < deserialized_packet->message_length)
+    {
+        *write_pointer++ = *read_pointer++;
+    }
+    *write_pointer = '\0';
+    return;
+}

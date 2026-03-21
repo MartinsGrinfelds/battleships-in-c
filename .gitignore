@@ -4,6 +4,7 @@ temp_out
 s
 *.o
 *.gch
+*.log
 *executable
 a.out
 Battleships_Server

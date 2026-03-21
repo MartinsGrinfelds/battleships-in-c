@@ -134,6 +134,14 @@ struct IGoPacket
     uint8_t y;
 };
 
+/// @brief End of demo / game notification packet (DATA-00XX)
+struct EndGamePacket
+{
+    uint8_t winner_id;    // 0 = none / draw
+    uint8_t message_length;
+    char *message;
+};
+
 
 
 /// @brief Takes Hello packet and makes one long chunk of data so it can be used within GenericPacket.
@@ -234,3 +242,9 @@ char *i_go_packet_serialization(struct IGoPacket *packet, size_t *final_size);
 /// @param serialized_packet Pointer to serialized IGo packet.
 /// @param deserialized_packet Pointer to IGo packet where to put data in.
 void i_go_packet_deserialization(char *serialized_packet, struct IGoPacket *deserialized_packet);
+
+/// @brief Serialize EndGame packet
+char *endgame_packet_serialization(struct EndGamePacket *packet, size_t *final_size);
+
+/// @brief Deserialize EndGame packet
+void endgame_packet_deserialization(char *serialized_packet, struct EndGamePacket *deserialized_packet);
