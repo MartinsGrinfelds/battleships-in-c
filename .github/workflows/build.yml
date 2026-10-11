@@ -1,7 +1,10 @@
 name: Build
-# This workflow can be executed manually on any branch and can be called from another workflow
+# This workflow runs on pushes and pull requests, can be executed manually on any branch
+# and can be called from another workflow
 
 on:
+    push:
+    pull_request:
     workflow_call:
     workflow_dispatch:
 
@@ -33,6 +36,17 @@ jobs:
         env:
             VERSION: $(BATTLESHIPS_VERSION)
 
+      - name: Unit and integration tests (with memory sanitizers)
+        # Lower address randomization: AddressSanitizer can crash randomly with kernel default on new runners.
+        run: |
+            sudo sysctl vm.mmap_rnd_bits=28
+            make sanitize
+
+      - name: Rebuild release binaries after sanitizer build
+        run: make clean && make all
+        env:
+            VERSION: $(BATTLESHIPS_VERSION)
+
       - name: Archive server binary
         uses: actions/upload-artifact@v4
         with:
@@ -44,3 +58,9 @@ jobs:
         with:
             name: BattleshipsClient
             path: BattleshipsClient
+
+      - name: Archive bot binary
+        uses: actions/upload-artifact@v4
+        with:
+            name: BattleshipsBot
+            path: BattleshipsBot
