@@ -1,0 +1,7 @@
+.git
+*.o
+*.d
+BattleshipsServer
+BattleshipsClient
+BattleshipsBot
+tests/unit_tests

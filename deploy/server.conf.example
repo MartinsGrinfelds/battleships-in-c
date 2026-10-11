@@ -1,0 +1,26 @@
+# Battleships server settings.
+# Use: BattleshipsServer --config server.conf
+# Every setting can also be given on command line (--port 4000). Command line wins.
+
+# Network
+# bind = 0.0.0.0
+port = 12345
+max-players = 10
+
+# Game
+min-players = 2
+teams = 2
+map-width = 50
+map-height = 50
+max-turns = 150
+shots-per-turn = 1
+
+# Timers (seconds)
+lobby-wait = 30
+placement-time = 120
+turn-time = 60
+post-game = 15
+reconnect-time = 60
+
+# 1 - print every move, shot and chat message to log
+verbose = 0
