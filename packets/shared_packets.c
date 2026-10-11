@@ -1,307 +1,417 @@
 #include "shared_packets.h"
 #include <stdint.h> // uint definitions
 #include <stdlib.h> // exit(), size_t, malloc
-#include <stdio.h> // printf
-#include "../graphical/text_formatter.h" // print_failure()
+#include <string.h> // memcpy(), strlen()
 
-// IMPORTANT!!! SERIALIZATION IS NOT NEEDED IF PACKET CONTAINS PURE VALUES.
-// Packet serialization/deserialization helps to put information together in one chunk.
+// IMPORTANT!!! Packet serialization/deserialization helps to put information together in one chunk.
 // Without this deserialized packets contain information about fields.
 // Fields can contain address to another memory and normally sending the packet we would not send data but only address.
 // It is required to read multiple address contents into one chunk of data.
 // To make this working you have to deserialize in same order as you serialized the content.
+// Structs are never copied as raw memory because compilers may add padding and machines differ in byte order.
 
-//TODO: Fix potencial issue with filler_pointer + sizeof. This is wrong and works because sizeof returns 1
+#define SERIALIZED_MAP_OBJECT_SIZE 7
+#define SERIALIZED_PLAYER_SIZE (3 + MAX_USERNAME + 1)
+
+/// @brief Helper to write values one after another into serialized packet.
+struct Writer
+{
+    char *start;
+    char *position;
+};
+
+/// @brief Helper to read values one after another and never read outside of received content.
+struct Reader
+{
+    char *position;
+    size_t left;
+    int failed;
+};
+
+static char *writer_start(struct Writer *writer, size_t size)
+{
+    // Call free(address) for this one or enjoy memory leak 😍
+    // +1 so that malloc(0) is never called.
+    writer->start = malloc(size + 1);
+    writer->position = writer->start;
+    return writer->start;
+}
+
+static void write_u8(struct Writer *writer, uint8_t value)
+{
+    *(uint8_t *)writer->position = value;
+    writer->position += sizeof(uint8_t);
+}
+
+static void write_u16(struct Writer *writer, uint16_t value)
+{
+    // Network byte order (Big-Endian).
+    write_u8(writer, (uint8_t)(value >> 8));
+    write_u8(writer, (uint8_t)(value & 0xFF));
+}
+
+static void write_bytes(struct Writer *writer, const char *bytes, size_t length)
+{
+    if (length)
+    {
+        memcpy(writer->position, bytes, length);
+        writer->position += length;
+    }
+}
+
+static uint8_t read_u8(struct Reader *reader)
+{
+    if (reader->left < 1)
+    {
+        reader->failed = 1;
+        return 0;
+    }
+    uint8_t value = *(uint8_t *)reader->position;
+    reader->position++;
+    reader->left--;
+    return value;
+}
+
+static uint16_t read_u16(struct Reader *reader)
+{
+    uint16_t value = read_u8(reader);
+    value = (value << 8) | read_u8(reader);
+    return value;
+}
+
+/// @brief Reads string of given length and returns it as \0 terminated string created by malloc.
+static char *read_string(struct Reader *reader, size_t length)
+{
+    if (reader->left < length)
+    {
+        reader->failed = 1;
+        return NULL;
+    }
+    char *string = malloc(length + 1); // +1 is for \0 character
+    memcpy(string, reader->position, length);
+    string[length] = '\0'; // Fill last character with \0 or risk hoping it was 0
+    reader->position += length;
+    reader->left -= length;
+    return string;
+}
+
+static void reader_start(struct Reader *reader, char *serialized_packet, size_t size)
+{
+    reader->position = serialized_packet;
+    reader->left = serialized_packet ? size : 0;
+    reader->failed = 0;
+}
+
+static uint8_t safe_string_length(char *string, uint8_t length)
+{
+    // Never trust length if string is missing.
+    return string ? length : 0;
+}
 
 char *hello_packet_serialization(struct HelloPacket *packet, size_t *final_size)
 {
-    *final_size = sizeof(packet->name_length) + packet->name_length;
-    // Call free(address) for this one or enjoy memory leak 😍
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    *(uint8_t *)filler_pointer = packet->name_length;
-    filler_pointer += sizeof(uint8_t);
-    char *name_pointer = packet->name;
-    while ((size_t)filler_pointer - (size_t)serialized_packet < *final_size)
-    {
-        *filler_pointer++ = *name_pointer++;
-    }
-    return serialized_packet;
+    uint8_t name_length = safe_string_length(packet->name, packet->name_length);
+    *final_size = sizeof(packet->name_length) + name_length;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, name_length);
+    write_bytes(&writer, packet->name, name_length);
+    return writer.start;
 }
 
-void hello_packet_deserialization(char *serialized_packet, struct HelloPacket *deserialized_packet)
+int hello_packet_deserialization(char *serialized_packet, size_t size, struct HelloPacket *deserialized_packet)
 {
-    char *read_pointer = serialized_packet;
-    deserialized_packet->name_length = *(uint8_t *)read_pointer++;
-    
-    deserialized_packet->name = malloc(deserialized_packet->name_length + 1); // +1 is for \0 character
-    char *write_pointer = deserialized_packet->name;
-    char* name_start_pointer = read_pointer;
-    // read_pointer points at first name character.
-    // By subtracting name start pointer we can know processed name length.
-    while (read_pointer - name_start_pointer < deserialized_packet->name_length)
-    {
-        *write_pointer++ = *read_pointer++;
-    }
-    *write_pointer = '\0'; // Fill last name character with \0 or risk hoping it was 0
-    return;
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->name_length = read_u8(&reader);
+    deserialized_packet->name = read_string(&reader, deserialized_packet->name_length);
+    return reader.failed ? -1 : 0;
 }
 
 char *ack_packet_serialization(struct AckPacket *packet, size_t *final_size)
 {
-    *final_size = sizeof(packet->team_id) + sizeof(packet->player_id) + sizeof(packet->message_length) + packet->message_length;
-    // Call free(address) for this one or enjoy memory leak 😍
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    // Player ID
-    *(uint8_t *)filler_pointer = packet->player_id;
-    filler_pointer += sizeof(uint8_t);
-    // Team ID
-    *(uint8_t *)filler_pointer = packet->team_id;
-    filler_pointer += sizeof(uint8_t);
-    // Message length
-    *(uint8_t *)filler_pointer = packet->message_length;
-    filler_pointer += sizeof(uint8_t);
-    // Message
-    char *message_pointer = packet->message;
-    while ((size_t)filler_pointer - (size_t)serialized_packet < *final_size)
-    {
-        *filler_pointer++ = *message_pointer++;
-    }
-    return serialized_packet;
+    uint8_t message_length = safe_string_length(packet->message, packet->message_length);
+    *final_size = sizeof(packet->team_id) + sizeof(packet->player_id) + sizeof(packet->message_length) + message_length;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->player_id);
+    write_u8(&writer, packet->team_id);
+    write_u8(&writer, message_length);
+    write_bytes(&writer, packet->message, message_length);
+    return writer.start;
 }
 
-
-
-void ack_packet_deserialization(char *serialized_packet, struct AckPacket *deserialized_packet)
+int ack_packet_deserialization(char *serialized_packet, size_t size, struct AckPacket *deserialized_packet)
 {
-    char *read_pointer = serialized_packet;
-    // Player ID
-    deserialized_packet->player_id = *(uint8_t *)read_pointer++;
-    // Team ID
-    deserialized_packet->team_id = *(uint8_t *)read_pointer++;
-    // Message length
-    deserialized_packet->message_length = *(uint8_t *)read_pointer++;
-    char* message_start_pointer = read_pointer;
-    // Message
-    deserialized_packet->message = malloc(deserialized_packet->message_length + 1); // +1 is for \0 character
-    char *write_pointer = deserialized_packet->message;
-    // read_pointer points at first message character.
-    // By subtracting message start pointer we can know processed message length.
-    while (read_pointer - message_start_pointer < deserialized_packet->message_length)
-    {
-        *write_pointer++ = *read_pointer++;
-    }
-    *write_pointer = '\0'; // Fill last message character with \0 or risk hoping it was 0
-    return;
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->player_id = read_u8(&reader);
+    deserialized_packet->team_id = read_u8(&reader);
+    deserialized_packet->message_length = read_u8(&reader);
+    deserialized_packet->message = read_string(&reader, deserialized_packet->message_length);
+    return reader.failed ? -1 : 0;
 }
-
-// char *player_packet_serialization(struct Player *packet, size_t *final_size)
-// {
-//     *final_size = sizeof(packet->socket_nr) + sizeof(packet->id) + sizeof(packet->team_id)+ sizeof(packet->message_length) + packet->message_length;
-//     // int socket_nr;
-//     // uint8_t id;
-//     // uint8_t team_id;
-//     // uint8_t status;
-//     // char username[MAX_USERNAME]; NO NEED TO SERIALIZE IF FIXED SIZE
-// }
-
-// void player_packet_deserialization(char *serialized_packet, Player *deserialized_packet)
-// {
-// }
 
 char *state_packet_serialization(struct StatePacket *packet, size_t *final_size)
 {
+    uint8_t object_count = packet->map_objects ? packet->object_count : 0;
+    uint8_t player_count = packet->players ? packet->player_count : 0;
     *final_size = sizeof(packet->map_width) + sizeof(packet->map_height) + sizeof(packet->status) + sizeof(packet->object_count) + sizeof(packet->player_count);
-    *final_size += (packet->object_count * sizeof(struct MapObject)) + (packet->player_count * sizeof(struct Player));
-    // Call free(address) for this one or enjoy memory leak 😍
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    // uint8_t map_width;
-    *(uint8_t *)filler_pointer = packet->map_width;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t map_height;
-    *(uint8_t *)filler_pointer = packet->map_height;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t status;
-    *(uint8_t *)filler_pointer = packet->status;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t object_count;
-    *(uint8_t *)filler_pointer = packet->object_count;
-    filler_pointer += sizeof(uint8_t);
-    // struct MapObject *map_objects;
-    struct MapObject *object_filler_pointer = (struct MapObject *)filler_pointer;
-    struct MapObject *object_pointer = packet->map_objects;
+    *final_size += (object_count * SERIALIZED_MAP_OBJECT_SIZE) + (player_count * SERIALIZED_PLAYER_SIZE);
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->map_width);
+    write_u8(&writer, packet->map_height);
+    write_u8(&writer, packet->status);
+    write_u8(&writer, object_count);
     size_t counter = 0;
-    while (counter++ < packet->object_count)
+    while (counter < object_count)
     {
-        *object_filler_pointer++ = *object_pointer++;
+        struct MapObject *object = &packet->map_objects[counter++];
+        write_u8(&writer, object->object_type);
+        write_u8(&writer, object->x);
+        write_u8(&writer, object->y);
+        write_u8(&writer, object->rotation);
+        write_u8(&writer, object->team_id);
+        write_u8(&writer, object->info);
+        write_u8(&writer, object->owner_id);
     }
-    filler_pointer = (char *)object_filler_pointer;
-    // uint8_t player_count;
-    *(uint8_t *)filler_pointer = packet->player_count;
-    filler_pointer += sizeof(uint8_t);
-    // struct Player *players;
-    struct Player *player_filler_pointer = (struct Player *)filler_pointer;
-    struct Player *player_pointer = packet->players;
+    write_u8(&writer, player_count);
     counter = 0;
-    while (counter++ < packet->player_count)
+    while (counter < player_count)
     {
-        *player_filler_pointer++ = *player_pointer++;
+        struct Player *player = &packet->players[counter++];
+        char username[MAX_USERNAME + 1] = {0};
+        strncpy(username, player->username, MAX_USERNAME);
+        write_u8(&writer, player->id);
+        write_u8(&writer, player->team_id);
+        write_u8(&writer, player->status);
+        write_bytes(&writer, username, MAX_USERNAME + 1);
     }
-    return serialized_packet;
+    return writer.start;
 }
 
-void state_packet_deserialization(char *serialized_packet, struct StatePacket *deserialized_packet)
+void free_state_packet(struct StatePacket *packet)
 {
-    // Checks of already initialized memory.
-    if (deserialized_packet->map_objects)
+    if (packet->map_objects)
     {
-        // Info already present. Cleaning!
-        free(deserialized_packet->map_objects);
-        deserialized_packet->map_objects = NULL;
+        free(packet->map_objects);
+        packet->map_objects = NULL;
     }
-    if (deserialized_packet->players)
+    if (packet->players)
     {
-        // Info already present. Cleaning!
-        free(deserialized_packet->players);
-        deserialized_packet->players = NULL;
+        free(packet->players);
+        packet->players = NULL;
     }
+    packet->object_count = 0;
+    packet->player_count = 0;
+}
 
-    char *read_pointer = serialized_packet;
-    // uint8_t map_width;
-    deserialized_packet->map_width = *(uint8_t *)read_pointer++;
-    // uint8_t map_height;
-    deserialized_packet->map_height = *(uint8_t *)read_pointer++;
-    // uint8_t status;
-    deserialized_packet->status = *(uint8_t *)read_pointer++;
-    // uint8_t object_count;
-    deserialized_packet->object_count = *(uint8_t *)read_pointer++;
-    // struct MapObject *map_objects;
-    if (deserialized_packet->object_count)
+int state_packet_deserialization(char *serialized_packet, size_t size, struct StatePacket *deserialized_packet)
+{
+    // Info already present. Cleaning!
+    free_state_packet(deserialized_packet);
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->map_width = read_u8(&reader);
+    deserialized_packet->map_height = read_u8(&reader);
+    deserialized_packet->status = read_u8(&reader);
+    uint8_t object_count = read_u8(&reader);
+    if (reader.failed || reader.left < (size_t)object_count * SERIALIZED_MAP_OBJECT_SIZE)
     {
-        deserialized_packet->map_objects = calloc(deserialized_packet->object_count, sizeof(struct MapObject));
-        struct MapObject* object_start_pointer = (void *)read_pointer;
-        struct MapObject *object_read_pointer = object_start_pointer;
-        struct MapObject *object_write_pointer = deserialized_packet->map_objects;
-        while (((struct MapObject *)object_read_pointer - (struct MapObject *)object_start_pointer) < deserialized_packet->object_count)
-        {
-            *object_write_pointer++ = *object_read_pointer++;
-        }
-        read_pointer = (void *)object_read_pointer;
+        return -1;
     }
-    // uint8_t player_count;
-    deserialized_packet->player_count = *(uint8_t *)read_pointer++;
-    // struct Player *players;
-    if (deserialized_packet->player_count)
+    if (object_count)
     {
-        deserialized_packet->players = calloc(deserialized_packet->player_count, sizeof(struct Player));
-        struct Player *player_start_pointer = (struct Player *)read_pointer;
-        struct Player *player_read_pointer = player_start_pointer;
-        struct Player *player_write_pointer = deserialized_packet->players;
-        while (((struct Player *)player_read_pointer - (struct Player *)player_start_pointer) < deserialized_packet->player_count)
-        {
-            *player_write_pointer++ = *player_read_pointer++;
-        }
+        deserialized_packet->map_objects = calloc(object_count, sizeof(struct MapObject));
     }
+    size_t counter = 0;
+    while (counter < object_count)
+    {
+        struct MapObject *object = &deserialized_packet->map_objects[counter++];
+        object->object_type = read_u8(&reader);
+        object->x = read_u8(&reader);
+        object->y = read_u8(&reader);
+        object->rotation = read_u8(&reader);
+        object->team_id = read_u8(&reader);
+        object->info = read_u8(&reader);
+        object->owner_id = read_u8(&reader);
+    }
+    deserialized_packet->object_count = object_count;
+    uint8_t player_count = read_u8(&reader);
+    if (reader.failed || reader.left < (size_t)player_count * SERIALIZED_PLAYER_SIZE)
+    {
+        free_state_packet(deserialized_packet);
+        return -1;
+    }
+    if (player_count)
+    {
+        deserialized_packet->players = calloc(player_count, sizeof(struct Player));
+    }
+    counter = 0;
+    while (counter < player_count)
+    {
+        struct Player *player = &deserialized_packet->players[counter++];
+        player->socket_nr = -1;
+        player->id = read_u8(&reader);
+        player->team_id = read_u8(&reader);
+        player->status = read_u8(&reader);
+        memcpy(player->username, reader.position, MAX_USERNAME + 1);
+        player->username[MAX_USERNAME] = '\0'; // Never trust the network.
+        reader.position += MAX_USERNAME + 1;
+        reader.left -= MAX_USERNAME + 1;
+    }
+    deserialized_packet->player_count = player_count;
+    return 0;
 }
 
 char *message_packet_serialization(struct MessagePacket *packet, size_t *final_size)
 {
-    *final_size = sizeof(packet->message_type) + sizeof(packet->sender_id) + sizeof(packet->receiver_id) + sizeof(packet->message_length) + packet->message_length;
-    // Call free(address) for this one or enjoy memory leak 😍
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    // uint8_t message_type;
-    *(uint8_t *)filler_pointer = packet->message_type;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t sender_id;
-    *(uint8_t *)filler_pointer = packet->sender_id;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t receiver_id;
-    *(uint8_t *)filler_pointer = packet->receiver_id;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t message_length;
-    *(uint8_t *)filler_pointer = packet->message_length;
-    filler_pointer += sizeof(uint8_t);
-    // char *message;
-    char *message_pointer = packet->message;
-    while ((size_t)filler_pointer - (size_t)serialized_packet < *final_size)
-    {
-        *filler_pointer++ = *message_pointer++;
-    }
-    return serialized_packet;
+    uint8_t message_length = safe_string_length(packet->message, packet->message_length);
+    *final_size = sizeof(packet->message_type) + sizeof(packet->sender_id) + sizeof(packet->receiver_id) + sizeof(packet->message_length) + message_length;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->message_type);
+    write_u8(&writer, packet->sender_id);
+    write_u8(&writer, packet->receiver_id);
+    write_u8(&writer, message_length);
+    write_bytes(&writer, packet->message, message_length);
+    return writer.start;
 }
 
-void message_packet_deserialization(char *serialized_packet, struct MessagePacket *deserialized_packet)
+int message_packet_deserialization(char *serialized_packet, size_t size, struct MessagePacket *deserialized_packet)
 {
-    char *read_pointer = serialized_packet;
-    // uint8_t message_type;
-    deserialized_packet->message_type = *(uint8_t *)read_pointer++;
-    // uint8_t sender_id;
-    deserialized_packet->sender_id = *(uint8_t *)read_pointer++;
-    // uint8_t receiver_id;
-    deserialized_packet->receiver_id = *(uint8_t *)read_pointer++;
-    // uint8_t message_length;
-    deserialized_packet->message_length = *(uint8_t *)read_pointer++;
-    // char *message;
-    deserialized_packet->message = malloc(deserialized_packet->message_length + 1); // +1 is for \0 character
-    char *write_pointer = deserialized_packet->message;
-    char* message_start_pointer = read_pointer;
-    // read_pointer points at first message character.
-    // By subtracting message start pointer we can know processed name length.
-    while (read_pointer - message_start_pointer < deserialized_packet->message_length)
-    {
-        *write_pointer++ = *read_pointer++;
-    }
-    *write_pointer = '\0'; // Fill last name character with \0 or risk hoping it was 0
-    return;
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->message_type = read_u8(&reader);
+    deserialized_packet->sender_id = read_u8(&reader);
+    deserialized_packet->receiver_id = read_u8(&reader);
+    deserialized_packet->message_length = read_u8(&reader);
+    deserialized_packet->message = read_string(&reader, deserialized_packet->message_length);
+    return reader.failed ? -1 : 0;
 }
 
 char *you_place_packet_serialization(struct YouPlacePacket *packet, size_t *final_size)
 {
     *final_size = sizeof(packet->player_id) + sizeof(packet->object_type);
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->player_id);
+    write_u8(&writer, packet->object_type);
+    return writer.start;
+}
 
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    // uint8_t player_id;
-    *filler_pointer = packet->player_id;
-    filler_pointer += sizeof(uint8_t);
-    // uint8_t object_type;
-    *filler_pointer = packet->object_type;
-    filler_pointer += sizeof(uint8_t);
-    return serialized_packet;
+int you_place_packet_deserialization(char *serialized_packet, size_t size, struct YouPlacePacket *deserialized_packet)
+{
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->player_id = read_u8(&reader);
+    deserialized_packet->object_type = read_u8(&reader);
+    return reader.failed ? -1 : 0;
 }
 
 char *i_place_packet_serialization(struct IPlacePacket *packet, size_t *final_size)
 {
-    *final_size = sizeof(struct MapObject);
-
-    char* serialized_packet = malloc(*final_size);
-    char *filler_pointer = serialized_packet;
-    // struct MapObject object;
-    *(struct MapObject *)filler_pointer = packet->object;
-    filler_pointer += sizeof(struct MapObject);
-
-    return serialized_packet;
+    *final_size = SERIALIZED_MAP_OBJECT_SIZE;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->object.object_type);
+    write_u8(&writer, packet->object.x);
+    write_u8(&writer, packet->object.y);
+    write_u8(&writer, packet->object.rotation);
+    write_u8(&writer, packet->object.team_id);
+    write_u8(&writer, packet->object.info);
+    write_u8(&writer, packet->object.owner_id);
+    return writer.start;
 }
 
-void you_place_packet_deserialization(char *serialized_packet, struct YouPlacePacket *deserialized_packet)
+int i_place_packet_deserialization(char *serialized_packet, size_t size, struct IPlacePacket *deserialized_packet)
 {
-    char *read_pointer = serialized_packet;
-
-    deserialized_packet->player_id = *read_pointer++;
-    deserialized_packet->object_type = *read_pointer++;
-
-    return;
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->object.object_type = read_u8(&reader);
+    deserialized_packet->object.x = read_u8(&reader);
+    deserialized_packet->object.y = read_u8(&reader);
+    deserialized_packet->object.rotation = read_u8(&reader);
+    deserialized_packet->object.team_id = read_u8(&reader);
+    deserialized_packet->object.info = read_u8(&reader);
+    deserialized_packet->object.owner_id = read_u8(&reader);
+    return reader.failed ? -1 : 0;
 }
 
-void i_place_packet_deserialization(char *serialized_packet, struct IPlacePacket *deserialized_packet)
+char *you_go_packet_serialization(struct YouGoPacket *packet, size_t *final_size)
 {
-    char *read_pointer = serialized_packet;
+    *final_size = 7 + SHIP_TYPE_COUNT;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->player_id);
+    write_u16(&writer, packet->turn_number);
+    write_u16(&writer, packet->max_turns);
+    write_u8(&writer, packet->shots_left);
+    write_u8(&writer, packet->seconds_left);
+    write_bytes(&writer, (char *)packet->moves_left, SHIP_TYPE_COUNT);
+    return writer.start;
+}
 
-    // struct MapObject object;
-    deserialized_packet->object = *(struct MapObject *)read_pointer;
-    read_pointer += sizeof(struct MapObject);
-    return;
+int you_go_packet_deserialization(char *serialized_packet, size_t size, struct YouGoPacket *deserialized_packet)
+{
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->player_id = read_u8(&reader);
+    deserialized_packet->turn_number = read_u16(&reader);
+    deserialized_packet->max_turns = read_u16(&reader);
+    deserialized_packet->shots_left = read_u8(&reader);
+    deserialized_packet->seconds_left = read_u8(&reader);
+    size_t i = 0;
+    while (i < SHIP_TYPE_COUNT)
+    {
+        deserialized_packet->moves_left[i++] = read_u8(&reader);
+    }
+    return reader.failed ? -1 : 0;
+}
+
+char *i_go_packet_serialization(struct IGoPacket *packet, size_t *final_size)
+{
+    *final_size = 6;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->player_id);
+    write_u8(&writer, packet->action);
+    write_u8(&writer, packet->x);
+    write_u8(&writer, packet->y);
+    write_u8(&writer, packet->object_type);
+    write_u8(&writer, packet->direction);
+    return writer.start;
+}
+
+int i_go_packet_deserialization(char *serialized_packet, size_t size, struct IGoPacket *deserialized_packet)
+{
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->player_id = read_u8(&reader);
+    deserialized_packet->action = read_u8(&reader);
+    deserialized_packet->x = read_u8(&reader);
+    deserialized_packet->y = read_u8(&reader);
+    deserialized_packet->object_type = read_u8(&reader);
+    deserialized_packet->direction = read_u8(&reader);
+    return reader.failed ? -1 : 0;
+}
+
+char *end_game_packet_serialization(struct EndGamePacket *packet, size_t *final_size)
+{
+    *final_size = 2;
+    struct Writer writer;
+    writer_start(&writer, *final_size);
+    write_u8(&writer, packet->winner_id);
+    write_u8(&writer, packet->winner_team_id);
+    return writer.start;
+}
+
+int end_game_packet_deserialization(char *serialized_packet, size_t size, struct EndGamePacket *deserialized_packet)
+{
+    struct Reader reader;
+    reader_start(&reader, serialized_packet, size);
+    deserialized_packet->winner_id = read_u8(&reader);
+    deserialized_packet->winner_team_id = read_u8(&reader);
+    return reader.failed ? -1 : 0;
 }

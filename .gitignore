@@ -11,3 +11,6 @@ Battleships_Client
 BattleshipsServer
 BattleshipsClient
 .DS_Store
+*.d
+BattleshipsBot
+tests/unit_tests
