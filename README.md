@@ -53,8 +53,9 @@ Damaged ships cannot move. Sunk ships are visible to everyone.
 | 4 | Small Ship | 2 | 2 | 10 squares |
 | 5 | Fast Boat | 1 | 5 | Can't shoot, but sees 15 squares instead of 10 |
 
-The game ends when only one team has ships left, or after 150 turns (then the team with the
-most undamaged ship squares wins). After a few seconds a new lobby opens.
+The game ends when only one team has ships left. It also ends after 150 turns, or when no ship can
+reach an enemy anymore (for example only Fast Boats are left, or damaged ships are out of each
+other's range); then the team with the most undamaged ship squares wins. After a few seconds a new lobby opens.
 
 ![Game over](docs/images/game-over.png)
 

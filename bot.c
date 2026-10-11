@@ -19,7 +19,7 @@ char *APP_VERSION = BATTLESHIPS_VERSION;
 char *APP_VERSION = "UNDEFINED!";
 #endif
 
-#define MAX_ACTIONS_PER_TURN 6
+#define MAX_ACTIONS_PER_TURN 30
 #define ACTION_RETRY_MS 1500 // If server doesn't answer action, try something else.
 
 /// @brief Bot settings.
@@ -46,6 +46,7 @@ uint8_t ship_to_place = 0;
 int64_t place_at_ms = 0;
 int games_played = 0, wins = 0;
 int chaos_disconnected = 0;
+uint8_t my_shots[256 * 256]; // Squares this bot shot at in current sweep (index y * 256 + x).
 volatile sig_atomic_t running = 1;
 
 void handle_stop_signal(int signal_number)
@@ -204,16 +205,17 @@ void place_ship()
     ship_to_place = 0;
 }
 
-int already_shot_at(int x, int y)
+/// @brief Is square in placement corner of any enemy team.
+int in_enemy_zone_square(int x, int y)
 {
-    size_t i = 0;
-    while (i < live_state.object_count)
+    uint8_t team = 1;
+    while (team <= MAX_TEAMS)
     {
-        struct MapObject *object = &live_state.map_objects[i++];
-        if ((object->object_type == OBJECT_MISSED_HIT || object->object_type == OBJECT_HIT_SQUARE) && object->x == x && object->y == y)
+        if (team != team_id && in_team_zone(team, live_state.map_width, live_state.map_height, x, y))
         {
             return 1;
         }
+        team++;
     }
     return 0;
 }
@@ -252,121 +254,197 @@ int choose_hunt_square(int *x, int *y)
     return 0;
 }
 
-/// @brief Finds ship and target for shot. Visible enemy ships first, then random squares far away.
+/// @brief Own ship that can shoot at square.
+/// @return Ship type or 0 if no ship reaches it.
+uint8_t shooter_for(int x, int y)
+{
+    uint8_t type = 1;
+    while (type <= SHIP_TYPE_COUNT)
+    {
+        struct MapObject *ship = find_my_ship(type);
+        if (ship && validate_shot(ship, x, y, live_state.map_width, live_state.map_height) == RULE_OK)
+        {
+            return type;
+        }
+        type++;
+    }
+    return 0;
+}
+
+/// @brief Is square worth a shot: not seen as empty, not own ship, not shot by this bot in current sweep.
+int worth_shooting(int x, int y)
+{
+    if (x < 0 || y < 0 || x >= live_state.map_width || y >= live_state.map_height || my_shots[y * 256 + x])
+    {
+        return 0;
+    }
+    // Visible enemies are handled first, so a visible square without them is empty sea.
+    return !team_sees_square(team_id, x, y, live_state.map_objects, live_state.object_count) &&
+           !team_ship_at(live_state.map_objects, live_state.object_count, team_id, x, y);
+}
+
+int aim(struct IGoPacket *action, int x, int y)
+{
+    uint8_t type = shooter_for(x, y);
+    if (!type)
+    {
+        return 0;
+    }
+    action->object_type = type;
+    action->x = (uint8_t)x;
+    action->y = (uint8_t)y;
+    return 1;
+}
+
+/// @brief Finds ship and target for shot. Visible enemy ships first, then squares next to hits,
+/// then sweeps hidden sea (enemy corners first, but ships move so every square gets its turn).
 /// @return 1 if found.
 int choose_shot(struct IGoPacket *action)
 {
-    uint8_t type = 1;
     // Visible enemy segments that are not damaged yet.
-    while (type <= SHIP_TYPE_COUNT)
+    size_t i = 0;
+    while (i < live_state.object_count)
     {
-        struct MapObject *ship = find_my_ship(type++);
-        if (!ship || ship_is_sunk(ship))
+        struct MapObject *enemy = &live_state.map_objects[i++];
+        if (!is_ship(enemy->object_type) || enemy->team_id == team_id || ship_is_sunk(enemy))
         {
             continue;
         }
-        size_t i = 0;
-        while (i < live_state.object_count)
+        int xs[MAX_SHIP_LENGTH], ys[MAX_SHIP_LENGTH];
+        int length = ship_squares(enemy, xs, ys);
+        int segment = 0;
+        while (segment < length)
         {
-            struct MapObject *enemy = &live_state.map_objects[i++];
-            if (!is_ship(enemy->object_type) || enemy->team_id == team_id || ship_is_sunk(enemy))
+            if (!(enemy->info & (1 << segment)) && aim(action, xs[segment], ys[segment]))
             {
-                continue;
-            }
-            int xs[MAX_SHIP_LENGTH], ys[MAX_SHIP_LENGTH];
-            int length = ship_squares(enemy, xs, ys);
-            int segment = 0;
-            while (segment < length)
-            {
-                if (!(enemy->info & (1 << segment)) && validate_shot(ship, xs[segment], ys[segment], live_state.map_width, live_state.map_height) == RULE_OK)
-                {
-                    action->object_type = ship->object_type;
-                    action->x = (uint8_t)xs[segment];
-                    action->y = (uint8_t)ys[segment];
-                    return 1;
-                }
-                segment++;
-            }
-        }
-    }
-    // Squares next to earlier hits (ship is probably there), then enemy corners, then anywhere.
-    int attempt = 0;
-    while (attempt++ < 600)
-    {
-        int x, y;
-        if (attempt <= 100)
-        {
-            if (!choose_hunt_square(&x, &y))
-            {
-                attempt = 100;
-                continue;
-            }
-        }
-        else if (attempt <= 400)
-        {
-            int x0, y0, x1, y1;
-            uint8_t enemy_team = (uint8_t)(1 + rand() % MAX_TEAMS);
-            if (enemy_team == team_id || team_zone(enemy_team, live_state.map_width, live_state.map_height, &x0, &y0, &x1, &y1))
-            {
-                continue;
-            }
-            x = x0 + rand() % (x1 - x0 + 1);
-            y = y0 + rand() % (y1 - y0 + 1);
-        }
-        else
-        {
-            x = rand() % live_state.map_width;
-            y = rand() % live_state.map_height;
-        }
-        if (in_team_zone(team_id, live_state.map_width, live_state.map_height, x, y) || already_shot_at(x, y) ||
-            team_ship_at(live_state.map_objects, live_state.object_count, team_id, x, y))
-        {
-            continue;
-        }
-        type = 1;
-        while (type <= SHIP_TYPE_COUNT)
-        {
-            struct MapObject *ship = find_my_ship(type++);
-            if (ship && validate_shot(ship, x, y, live_state.map_width, live_state.map_height) == RULE_OK)
-            {
-                action->object_type = ship->object_type;
-                action->x = (uint8_t)x;
-                action->y = (uint8_t)y;
                 return 1;
             }
+            segment++;
+        }
+    }
+    // Squares next to earlier hits (ship is probably there).
+    int attempt = 0;
+    while (attempt++ < 50)
+    {
+        int x, y;
+        if (!choose_hunt_square(&x, &y))
+        {
+            break;
+        }
+        if (worth_shooting(x, y) && aim(action, x, y))
+        {
+            return 1;
+        }
+    }
+    int sweep = 0;
+    while (sweep++ < 2)
+    {
+        // Count squares that can still be tried.
+        int in_enemy_zone = 0, elsewhere = 0, y = 0;
+        while (y < live_state.map_height)
+        {
+            int x = 0;
+            while (x < live_state.map_width)
+            {
+                if (worth_shooting(x, y) && shooter_for(x, y))
+                {
+                    if (in_team_zone(team_id, live_state.map_width, live_state.map_height, x, y) || !in_enemy_zone_square(x, y))
+                    {
+                        elsewhere++;
+                    }
+                    else
+                    {
+                        in_enemy_zone++;
+                    }
+                }
+                x++;
+            }
+            y++;
+        }
+        if (in_enemy_zone + elsewhere == 0)
+        {
+            // Every reachable square was tried. Ships move, so start a new sweep.
+            memset(my_shots, 0, sizeof(my_shots));
+            continue;
+        }
+        // Enemy corners first, but not always.
+        int use_zone = in_enemy_zone > 0 && (elsewhere == 0 || rand() % 3 != 0);
+        int pick = rand() % (use_zone ? in_enemy_zone : elsewhere);
+        y = 0;
+        while (y < live_state.map_height)
+        {
+            int x = 0;
+            while (x < live_state.map_width)
+            {
+                if (worth_shooting(x, y) && shooter_for(x, y))
+                {
+                    int zone = !in_team_zone(team_id, live_state.map_width, live_state.map_height, x, y) && in_enemy_zone_square(x, y);
+                    if (zone == use_zone && pick-- == 0)
+                    {
+                        return aim(action, x, y);
+                    }
+                }
+                x++;
+            }
+            y++;
         }
     }
     return 0;
 }
 
-/// @brief Finds ship that can move and direction for it.
+/// @brief Where ships should go: last hit if there is one, otherwise middle of map where teams meet.
+void get_move_target(int *target_x, int *target_y)
+{
+    *target_x = live_state.map_width / 2;
+    *target_y = live_state.map_height / 2;
+    size_t i = 0;
+    while (i < live_state.object_count)
+    {
+        struct MapObject *object = &live_state.map_objects[i++];
+        if (object->object_type == OBJECT_HIT_SQUARE)
+        {
+            *target_x = object->x;
+            *target_y = object->y;
+        }
+    }
+}
+
+/// @brief Finds ship that can move and direction for it. Mostly moves towards enemies.
 /// @return 1 if found.
 int choose_move(struct IGoPacket *action)
 {
-    int attempt = 0;
-    while (attempt++ < 20)
+    int target_x, target_y;
+    get_move_target(&target_x, &target_y);
+    int best_distance = -1, random_pick = rand() % 4 == 0;
+    uint8_t type = 1;
+    while (type <= SHIP_TYPE_COUNT)
     {
-        uint8_t type = (uint8_t)(1 + rand() % SHIP_TYPE_COUNT);
         struct MapObject *ship = find_my_ship(type);
-        if (!ship || current_turn.moves_left[type - 1] == 0)
+        if (ship && current_turn.moves_left[type - 1] > 0)
         {
-            continue;
+            uint8_t direction = 0;
+            while (direction < 4)
+            {
+                struct MapObject moved = *ship;
+                if (move_ship(&moved, direction, live_state.map_objects, live_state.object_count, live_state.map_width, live_state.map_height) == RULE_OK)
+                {
+                    int xs[MAX_SHIP_LENGTH], ys[MAX_SHIP_LENGTH];
+                    int head = ship_squares(&moved, xs, ys) - 1;
+                    int dx = xs[head] - target_x, dy = ys[head] - target_y;
+                    int distance = random_pick ? rand() % 1000 : dx * dx + dy * dy;
+                    if (best_distance < 0 || distance < best_distance)
+                    {
+                        best_distance = distance;
+                        action->object_type = type;
+                        action->direction = direction;
+                    }
+                }
+                direction++;
+            }
         }
-        // Mostly forward, sometimes turn.
-        uint8_t direction = ship->rotation;
-        if (rand() % 3 == 0)
-        {
-            direction = (uint8_t)((ship->rotation + (rand() % 2 ? 1 : 3)) % 4);
-        }
-        struct MapObject moved = *ship;
-        if (move_ship(&moved, direction, live_state.map_objects, live_state.object_count, live_state.map_width, live_state.map_height) == RULE_OK)
-        {
-            action->object_type = type;
-            action->direction = direction;
-            return 1;
-        }
+        type++;
     }
-    return 0;
+    return best_distance >= 0;
 }
 
 void take_action()
@@ -379,13 +457,14 @@ void take_action()
     {
         action.action = ACTION_END_TURN;
     }
-    else if (actions_this_turn <= 2 && rand() % 2 && choose_move(&action))
-    {
-        action.action = ACTION_MOVE;
-    }
     else if (current_turn.shots_left > 0 && choose_shot(&action))
     {
         action.action = ACTION_SHOOT;
+        my_shots[action.y * 256 + action.x] = 1;
+    }
+    else if (choose_move(&action))
+    {
+        action.action = ACTION_MOVE;
     }
     else
     {
@@ -393,7 +472,7 @@ void take_action()
     }
     size_t size;
     char *content = i_go_packet_serialization(&action, &size);
-        send_packet(PACKET_I_GO, content, size);
+    send_packet(PACKET_I_GO, content, size);
     waiting_answer = 1;
     last_action_ms = now_ms();
 }
@@ -425,6 +504,11 @@ void process_packet(struct GenericPacket *packet)
         if (you_place_packet_deserialization(packet->content, packet->packet_content_size, &you_place) == 0 && you_place.player_id == player_id)
         {
             ship_to_place = you_place.object_type;
+            if (ship_to_place == 1)
+            {
+                // New game.
+                memset(my_shots, 0, sizeof(my_shots));
+            }
             place_at_ms = now_ms() + options.think_ms;
         }
         break;

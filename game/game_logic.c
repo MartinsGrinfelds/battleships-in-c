@@ -1,5 +1,6 @@
 #include "game_logic.h"
 #include <stdlib.h> // abs()
+#include <string.h> // memcmp()
 
 // Wiki: Ship Properties (object_type)
 static const struct ShipProperties ship_properties[SHIP_TYPE_COUNT] = {
@@ -196,7 +197,10 @@ int ship_collides(const struct MapObject *ship, const struct MapObject *objects,
     while (object_nr < object_count)
     {
         const struct MapObject *other = &objects[object_nr++];
-        if (other == ignore || !is_ship(other->object_type) || ship_is_sunk(other))
+        // Ship being moved can be a copy (for example when client or bot tries a move first),
+        // so same ship is recognised by its values too. Two different ships can't be identical.
+        int is_ignored = ignore && (other == ignore || memcmp(other, ignore, sizeof(struct MapObject)) == 0);
+        if (is_ignored || !is_ship(other->object_type) || ship_is_sunk(other))
         {
             // Sunk ships go to the bottom and don't block anything.
             continue;

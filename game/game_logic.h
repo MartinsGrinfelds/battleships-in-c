@@ -103,7 +103,7 @@ int in_team_zone(uint8_t team_id, uint8_t map_width, uint8_t map_height, int x, 
 int ship_in_map(const struct MapObject *ship, uint8_t map_width, uint8_t map_height);
 
 /// @brief Does any square of ship overlap with any not sunk ship (except ignored one).
-/// @param ignore Ship to ignore (used when ship moves). Can be NULL.
+/// @param ignore Ship to ignore (used when ship moves). Can be pointer into objects or identical copy. Can be NULL.
 int ship_collides(const struct MapObject *ship, const struct MapObject *objects, size_t object_count, const struct MapObject *ignore);
 
 /// @brief Validates ship placement (INTR-0008, INTR-0009).

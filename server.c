@@ -665,6 +665,93 @@ void start_main_game()
     next_turn();
 }
 
+/// @brief Team with most undamaged ship squares (used when game can't be decided by sinking).
+/// @return Team ID or 0 if teams are equal.
+uint8_t team_with_most_healthy_squares()
+{
+    int best_score = -1, best_count = 0;
+    uint8_t best_team = 0, team = 1;
+    while (team <= config.team_count)
+    {
+        int score = count_healthy_segments(game.ships, game.ship_count, team);
+        if (score > best_score)
+        {
+            best_score = score;
+            best_team = team;
+            best_count = 1;
+        }
+        else if (score == best_score)
+        {
+            best_count++;
+        }
+        team++;
+    }
+    return best_count == 1 ? best_team : 0;
+}
+
+/// @brief Can ship move at all (afloat, has speed and isn't damaged).
+int ship_can_move(const struct MapObject *ship)
+{
+    return !ship_is_sunk(ship) && !ship_is_damaged(ship) && get_ship_properties(ship->object_type)->speed > 0;
+}
+
+/// @brief Can any ship ever damage an enemy again. False when no ship afloat can shoot, or when
+/// nothing can move and no ship has an enemy in range (then nothing on map can ever change).
+int anyone_can_still_fight()
+{
+    int any_shooter = 0, any_moving = 0;
+    size_t i = 0;
+    while (i < game.ship_count)
+    {
+        struct MapObject *ship = &game.ships[i++];
+        if (!ship_is_sunk(ship) && get_ship_properties(ship->object_type)->range != 0)
+        {
+            any_shooter = 1;
+        }
+        any_moving |= ship_can_move(ship);
+    }
+    if (!any_shooter)
+    {
+        return 0;
+    }
+    if (any_moving)
+    {
+        // Shooter can sail into range or enemy can sail into shooter's range.
+        return 1;
+    }
+    // Nothing moves: fight goes on only if some ship already has an enemy in range.
+    i = 0;
+    while (i < game.ship_count)
+    {
+        struct MapObject *shooter = &game.ships[i++];
+        if (ship_is_sunk(shooter) || get_ship_properties(shooter->object_type)->range == 0)
+        {
+            continue;
+        }
+        size_t j = 0;
+        while (j < game.ship_count)
+        {
+            struct MapObject *enemy = &game.ships[j++];
+            if (enemy->team_id == shooter->team_id || ship_is_sunk(enemy))
+            {
+                continue;
+            }
+            int xs[MAX_SHIP_LENGTH], ys[MAX_SHIP_LENGTH];
+            int length = ship_squares(enemy, xs, ys), segment = 0;
+            while (segment < length)
+            {
+                if (!(enemy->info & (1 << segment)) &&
+                    validate_shot(shooter, xs[segment], ys[segment], (uint8_t)config.map_width, (uint8_t)config.map_height) == RULE_OK)
+                {
+                    return 1;
+                }
+                segment++;
+            }
+        }
+    }
+    return 0;
+}
+
 /// @brief Checks if anyone has won (LOGC-0018).
 /// @return 1 if game ended.
 int check_game_end()
@@ -721,28 +808,15 @@ int check_game_end()
         end_game(0, "Everyone Left The Game!");
         return 1;
     }
+    if (!anyone_can_still_fight())
+    {
+        // For example only Fast Boats are left, or damaged ships that can't move are out of each other's range.
+        end_game(team_with_most_healthy_squares(), "No Ship Can Reach An Enemy Anymore!");
+        return 1;
+    }
     if (game.turn_number >= config.max_turns)
     {
-        // Team with most healthy ship squares wins.
-        int best_score = -1, best_count = 0;
-        uint8_t best_team = 0;
-        team = 1;
-        while (team <= config.team_count)
-        {
-            int score = count_healthy_segments(game.ships, game.ship_count, team);
-            if (score > best_score)
-            {
-                best_score = score;
-                best_team = team;
-                best_count = 1;
-            }
-            else if (score == best_score)
-            {
-                best_count++;
-            }
-            team++;
-        }
-        end_game(best_count == 1 ? best_team : 0, "Turn Limit Reached!");
+        end_game(team_with_most_healthy_squares(), "Turn Limit Reached!");
         return 1;
     }
     return 0;
@@ -985,6 +1059,7 @@ void process_action(struct Client *client, struct IGoPacket *action)
     }
     if (action->action == ACTION_END_TURN)
     {
+        log_message(LOG_LEVEL_DEBUG, "%s: end turn", client->player.username);
         next_turn();
         return;
     }
@@ -1079,6 +1154,7 @@ void process_action(struct Client *client, struct IGoPacket *action)
     if (!any_action_left(client))
     {
         // Nothing left to do. Don't make everyone wait.
+        log_message(LOG_LEVEL_DEBUG, "%s: nothing left to do, turn ends", client->player.username);
         next_turn();
         return;
     }

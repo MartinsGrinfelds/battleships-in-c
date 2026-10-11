@@ -497,6 +497,16 @@ static void test_movement()
     CHECK_EQ(move_ship(&boat, ROTATION_DOWN, &boat, 1, 50, 50), RULE_OK);
     CHECK_EQ(move_ship(&boat, ROTATION_DOWN, &boat, 1, 50, 50), RULE_OK);
     CHECK(boat.y == 6);
+    // Move can be tried on a copy of ship (bot and client do this). Copy must not collide with original.
+    struct MapObject fleet[2] = {make_ship(OBJECT_BATTLESHIP, 20, 20, ROTATION_RIGHT, 1, 1), make_ship(OBJECT_SMALL_SHIP, 30, 30, ROTATION_UP, 2, 2)};
+    struct MapObject copy = fleet[0];
+    CHECK_EQ(move_ship(&copy, ROTATION_RIGHT, fleet, 2, 50, 50), RULE_OK);
+    copy = fleet[0];
+    CHECK_EQ(move_ship(&copy, ROTATION_DOWN, fleet, 2, 50, 50), RULE_OK);
+    copy = fleet[1];
+    copy.x = 22; // Different ship with same type would still collide.
+    copy.y = 21;
+    CHECK_EQ(move_ship(&copy, ROTATION_UP, fleet, 2, 50, 50), RULE_OCCUPIED);
     // Sunk ship doesn't block.
     struct MapObject wreck_test[2] = {make_ship(OBJECT_FAST_BOAT, 5, 5, ROTATION_RIGHT, 1, 1), make_ship(OBJECT_FAST_BOAT, 6, 5, 0, 2, 2)};
     CHECK_EQ(move_ship(&wreck_test[0], ROTATION_RIGHT, wreck_test, 2, 50, 50), RULE_OCCUPIED);

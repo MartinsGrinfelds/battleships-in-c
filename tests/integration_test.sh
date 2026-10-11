@@ -117,7 +117,7 @@ pass
 start_server "Game until ships are sunk" --min-players 2 --shots-per-turn 10 --max-turns 2000 --map-width 40 --map-height 40
 run_bots 2 --games 1
 wait_bots
-expect_in_log "Only One Team Has Ships Left|All Ships Are Sunk"
+expect_in_log "Only One Team Has Ships Left|All Ships Are Sunk|No Ship Can Reach An Enemy Anymore"
 stop_server
 pass
 
