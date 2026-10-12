@@ -1,0 +1,38 @@
+# systemd service for Battleships server.
+#
+# Install:
+#   sudo useradd --system --no-create-home battleships
+#   sudo install -m 755 BattleshipsServer /usr/local/bin/
+#   sudo install -D -m 644 deploy/server.conf.example /etc/battleships/server.conf
+#   sudo cp deploy/battleships-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now battleships-server
+# Logs:
+#   journalctl -u battleships-server -f
+
+[Unit]
+Description=Battleships game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=battleships
+ExecStart=/usr/local/bin/BattleshipsServer --config /etc/battleships/server.conf
+Restart=on-failure
+RestartSec=3
+
+# Hardening: server only needs its port.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

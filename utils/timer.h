@@ -1,10 +1,25 @@
 #pragma once
 #include <stdbool.h>
+#include <stdint.h>
 
-void start_or_reset_timer(int seconds);
+/// @brief Countdown timer. It doesn't use threads: game loop asks it if time is up.
+struct Timer
+{
+    bool is_running;
+    int64_t deadline_ms;
+};
 
-void reset_timer();
+/// @brief Milliseconds from some fixed moment (monotonic clock, not affected by clock changes).
+int64_t now_ms();
 
-void stop_timer();
+/// @brief Starts timer or restarts it if it is already running.
+void start_or_reset_timer(struct Timer *timer, int seconds);
 
-bool timer_has_finished_running();
+/// @brief Stops timer. Stopped timer never finishes.
+void stop_timer(struct Timer *timer);
+
+/// @brief Was timer started and is time up.
+bool timer_has_finished_running(struct Timer *timer);
+
+/// @brief Seconds left (rounded up). 0 if timer is not running or finished.
+int timer_seconds_remaining(struct Timer *timer);

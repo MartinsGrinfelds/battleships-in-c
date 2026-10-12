@@ -17,11 +17,13 @@ jobs:
       steps:
           - name: Download all workflow run artifacts
             uses: actions/download-artifact@v4
+            with:
+                merge-multiple: true
 
           - name: Read build version
             id: read_version
             run: |
-                  BATTLESHIPS_VERSION=$(cat build-version/build_version.txt)
+                  BATTLESHIPS_VERSION=$(cat build_version.txt)
                   echo "BATTLESHIPS_VERSION=$BATTLESHIPS_VERSION" >> $GITHUB_ENV
 
           - name: Create Release
@@ -33,3 +35,4 @@ jobs:
               files: |
                   BattleshipsServer
                   BattleshipsClient
+                  BattleshipsBot
